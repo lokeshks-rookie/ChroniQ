@@ -117,7 +117,7 @@ Pick **one** and use it everywhere. Do not mix.
 - Reuse directly for FAQ pages and for "claim status details" — thin horizontal dividers, plus/minus icon on the right, generous vertical padding per row (24px+).
 
 ### Icons
-- Minimal line icons only, single stroke weight, no fills, no gradients, no duotone. Arrow-in-circle is the dominant motif for the reference — keep it for "next," "learn more," and "submit" actions throughout.
+- Use lucide react icons . 
 
 ---
 
