@@ -15,6 +15,8 @@ import {
   Copy,
   Check,
   User,
+  PanelLeftClose,
+  PanelLeft,
 } from 'lucide-react';
 import { getNavConfigForRole } from './navConfig';
 import { useAuthStore } from '@/store/authStore';
@@ -49,6 +51,24 @@ export const AdminLayout: React.FC = () => {
   const [liveClock, setLiveClock] = useState(getLiveClockIST());
   const [displayPopoverOpen, setDisplayPopoverOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
+
+  const [isHoverOpen, setIsHoverOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  const isOpen = isSidebarOpen || isHoverOpen;
+
+  const handleToggle = () => {
+    if (isSidebarOpen) setIsHoverOpen(false);
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
+  const asideStyle = isOpen
+    ? { width: '264px', transition: 'width 400ms ease-out 150ms' }
+    : { width: '64px', transition: 'width 400ms ease-out 150ms' };
+
+  const contentStyle = isOpen
+    ? { opacity: 1, pointerEvents: 'auto', transition: 'opacity 200ms ease-out 500ms' }
+    : { opacity: 0, pointerEvents: 'none', transition: 'opacity 80ms ease-out 100ms' };
 
   const copyToClipboard = (text: string, title: string) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -114,7 +134,7 @@ export const AdminLayout: React.FC = () => {
         </div>
 
         {/* Nav Groups */}
-        <nav className="space-y-6 overflow-y-auto max-h-[calc(100vh-280px)] pr-1">
+        <nav className="space-y-6 overflow-y-auto max-h-[calc(100vh-280px)] pr-1" style={{ scrollbarWidth: 'none' }}>
           {currentNavGroups.map((group) => {
             // Filter items by role capability
             const visibleItems = group.items.filter((item) => hasCapability(item.capability));
@@ -122,23 +142,22 @@ export const AdminLayout: React.FC = () => {
 
             return (
               <div key={group.eyebrow} className="space-y-2">
-                <div className="text-[11px] font-semibold tracking-wider text-base/40 uppercase px-3 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 bg-base/40 inline-block" />
-                  <span>{group.eyebrow}</span>
+                <div className="text-[10px] font-semibold tracking-widest text-base/40 uppercase px-3">
+                  {group.eyebrow}
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   {visibleItems.map((item) => {
                     if (item.openInNewTab) {
                       if (item.id === 'screen-display') {
                         return (
                           <div key={item.id} className="space-y-1">
-                            <div className="flex items-center justify-between px-3 py-2 rounded-full text-sm text-base/80 hover:text-base hover:bg-base/5 transition-colors">
+                            <div className="flex items-center justify-between px-3 py-2.5 rounded-[10px] text-sm text-base/65 hover:text-base hover:bg-base/5 transition-colors font-medium">
                               <button
                                 type="button"
                                 onClick={() => setDisplayPopoverOpen((prev) => !prev)}
-                                className="flex items-center gap-2.5 flex-1 text-left"
+                                className="flex items-center gap-3 flex-1 text-left"
                               >
-                                <span className="w-1.5 h-1.5 shrink-0 bg-base/60" />
+                                {item.icon && <item.icon size={17} strokeWidth={1.8} />}
                                 <span>{item.label}</span>
                                 <ChevronDown
                                   className={`w-3.5 h-3.5 ml-auto transition-transform ${
@@ -166,7 +185,7 @@ export const AdminLayout: React.FC = () => {
                             </div>
 
                             {displayPopoverOpen && (
-                              <div className="ml-4 p-2 rounded-card bg-base/10 border border-base/15 space-y-1 text-xs">
+                              <div className="ml-4 p-2 rounded-card bg-base/5 border border-base/10 space-y-1 text-xs">
                                 <div className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-base/10">
                                   <a
                                     href={`/display/${hospital.id}/all`}
@@ -238,15 +257,15 @@ export const AdminLayout: React.FC = () => {
                       return (
                         <div
                           key={item.id}
-                          className="flex items-center justify-between px-3 py-2 rounded-full text-sm text-base/80 hover:text-base hover:bg-base/5 transition-colors"
+                          className="flex items-center justify-between px-3 py-2.5 rounded-[10px] text-sm text-base/65 hover:text-base hover:bg-base/5 transition-colors font-medium"
                         >
                           <a
                             href={`/checkin/${hospital.id}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-2.5 flex-1"
+                            className="flex items-center gap-3 flex-1"
                           >
-                            <span className="w-1.5 h-1.5 shrink-0 bg-base/60" />
+                            {item.icon && <item.icon size={17} strokeWidth={1.8} />}
                             <span>{item.label}</span>
                             <ExternalLink className="w-3.5 h-3.5 ml-1 text-base/50" />
                           </a>
@@ -278,28 +297,24 @@ export const AdminLayout: React.FC = () => {
                         to={item.path}
                         end={isExact}
                         className={({ isActive }) =>
-                          `flex items-center justify-between px-3 py-2 rounded-full text-sm transition-colors ${
+                          `flex items-center justify-between px-3 py-2.5 rounded-[10px] text-sm transition-colors relative ${
                             isActive
-                              ? 'bg-accent text-ink font-semibold'
-                              : 'text-base/80 hover:text-base hover:bg-base/5 font-normal'
+                              ? 'bg-base/10 text-base font-semibold'
+                              : 'text-base/65 hover:text-base hover:bg-base/5 font-medium'
                           }`
                         }
                       >
                         {({ isActive }) => (
                           <>
-                            <div className="flex items-center gap-2.5">
-                              <span
-                                className={`w-1.5 h-1.5 shrink-0 transition-colors ${
-                                  isActive ? 'bg-ink' : 'bg-base/60'
-                                }`}
-                              />
+                            <div className="flex items-center gap-3">
+                              {item.icon && <item.icon size={17} strokeWidth={1.8} />}
                               <span>{item.label}</span>
                             </div>
 
                             {item.showQueueCount && waitingPatientsCount > 0 && (
                               <span
-                                className={`text-xs px-2 py-0.5 rounded-full font-bold tabular-nums ${
-                                  isActive ? 'bg-ink text-base' : 'bg-accent text-ink'
+                                className={`text-[10px] font-bold w-[18px] h-[18px] rounded-full flex items-center justify-center absolute right-3 ${
+                                  isActive ? 'bg-accent text-ink' : 'bg-accent text-ink'
                                 }`}
                               >
                                 {waitingPatientsCount}
@@ -368,8 +383,38 @@ export const AdminLayout: React.FC = () => {
 
       <div className="flex flex-1 min-h-screen">
         {/* Desktop Sidebar (ink, 264px) */}
-        <aside className="hidden lg:flex w-[264px] bg-ink text-base shrink-0 flex-col border-r border-ink/20 sticky top-0 h-screen z-30">
-          {renderNavContent()}
+        <aside
+          onMouseLeave={() => setIsHoverOpen(false)}
+          onMouseMove={(e) => {
+            if (!isOpen) {
+              const rect = e.currentTarget.getBoundingClientRect();
+              if (e.clientY - rect.top >= 47) {
+                setIsHoverOpen(true);
+              }
+            }
+          }}
+          style={asideStyle}
+          className="hidden lg:flex bg-ink text-base shrink-0 flex-col border-r border-ink/20 sticky top-0 h-screen z-50 relative"
+        >
+          <button
+            onClick={handleToggle}
+            className="absolute top-3 left-full -translate-x-1/2 z-50 flex items-center justify-center w-7 h-7 rounded-full shadow-sm cursor-pointer transition-colors duration-200 ease-out"
+            style={{
+              backgroundColor: 'var(--color-base)',
+              color: 'var(--color-ink)',
+              border: '1px solid rgba(154,110,86,0.15)',
+            }}
+            aria-label={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+            title={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+          >
+            {isSidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeft size={16} />}
+          </button>
+
+          <div style={contentStyle as React.CSSProperties} className="w-full h-full overflow-y-auto overflow-x-hidden">
+            <div className="flex flex-col min-h-full w-[264px] min-w-[264px]">
+              {renderNavContent()}
+            </div>
+          </div>
         </aside>
 
         {/* Mobile / Tablet Drawer */}
@@ -398,7 +443,7 @@ export const AdminLayout: React.FC = () => {
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Topbar (base, hairline bottom border) */}
-          <header className="h-16 bg-base border-b border-ink/10 sticky top-0 z-20 px-4 md:px-8 flex items-center justify-between gap-4">
+          <header className="h-16 bg-base border-b border-ink/10 sticky top-0 z-40 px-4 md:px-8 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <button
                 type="button"

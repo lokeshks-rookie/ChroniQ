@@ -470,11 +470,7 @@ export const AppointmentsPage: React.FC = () => {
                 key={st}
                 type="button"
                 onClick={() => toggleStatusFilter(st)}
-                className={`px-3 py-1 rounded-full font-medium transition-colors cursor-pointer flex items-center gap-1.5 capitalize ${
-                  isSelected
-                    ? 'bg-accent text-ink font-semibold'
-                    : 'border border-ink/20 text-ink hover:border-ink/40 bg-base'
-                }`}
+                className={`badge !capitalize flex items-center gap-1.5 ${isSelected ? 'active' : ''}`}
               >
                 <span>{st.replace('_', ' ')}</span>
                 <span
@@ -548,7 +544,7 @@ export const AppointmentsPage: React.FC = () => {
 
             {/* Clinical & Encounter Snapshot */}
             <div className="space-y-3 text-xs">
-              <div className="font-semibold uppercase tracking-wider text-ink/70">
+              <div className="eyebrow">
                 Clinical Context
               </div>
               <div className="p-3 rounded-card border border-ink/10 space-y-2">
@@ -575,7 +571,7 @@ export const AppointmentsPage: React.FC = () => {
 
             {/* Status History Timeline */}
             <div className="space-y-3 text-xs">
-              <div className="font-semibold uppercase tracking-wider text-ink/70">
+              <div className="eyebrow">
                 Status History Timeline
               </div>
               <div className="space-y-2 relative pl-4 border-l-2 border-ink/20">
@@ -641,7 +637,7 @@ export const AppointmentsPage: React.FC = () => {
           />
 
           <div className="space-y-1.5">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70">
+            <label className="eyebrow block">
               Select Time Slot *
             </label>
             <div className="grid grid-cols-4 gap-2">

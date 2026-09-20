@@ -78,7 +78,7 @@ export default function QueueStatusWidget({
               color: isCalled ? 'var(--color-success)' : 'var(--color-ink)',
               textTransform: 'uppercase', letterSpacing: '0.05em',
             }}>
-              {isCalled ? '🔔 Your turn!' : 'In Queue'}
+              {isCalled ? 'Your turn!' : 'In Queue'}
             </span>
             <span style={{
               fontSize: '12px', fontWeight: 700,

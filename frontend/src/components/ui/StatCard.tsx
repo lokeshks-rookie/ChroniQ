@@ -35,12 +35,7 @@ export const StatCard: React.FC<StatCardProps> = ({
       <div>
         <div className="flex items-center justify-between gap-2 mb-2">
           {eyebrow && (
-            <div
-              className={`text-xs uppercase tracking-wider font-semibold flex items-center gap-1.5 ${
-                isDark ? 'text-base/70' : 'text-ink/70'
-              }`}
-            >
-              <span className={`w-1.5 h-1.5 inline-block shrink-0 ${isDark ? 'bg-base' : 'bg-ink'}`} />
+            <div className={`eyebrow ${isDark ? 'eyebrow-light' : ''}`}>
               <span>{eyebrow}</span>
             </div>
           )}
@@ -113,11 +108,11 @@ export const Accordion: React.FC<AccordionProps> = ({ items, defaultOpenId }) =>
   };
 
   return (
-    <div className="divide-y divide-ink/10 border-t border-b border-ink/10">
+    <div>
       {items.map((item) => {
         const isOpen = openId === item.id;
         return (
-          <div key={item.id} className="py-5">
+          <div key={item.id} className="accordion-row">
             <button
               type="button"
               onClick={() => toggle(item.id)}

@@ -321,8 +321,7 @@ export const StaffPage: React.FC = () => {
       <Card padding="md" className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-ink/10 pb-3">
           <div>
-            <div className="text-xs uppercase tracking-wider font-semibold text-ink/70 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 bg-ink inline-block" />
+            <div className="eyebrow flex items-center gap-1.5">
               <span>ACCESS CONTROL MATRIX</span>
             </div>
             <h3 className="text-base font-medium text-ink mt-0.5">Role Capabilities & Navigation Entitlements</h3>
@@ -335,7 +334,7 @@ export const StaffPage: React.FC = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="border-b border-ink/10 text-ink/70 font-semibold uppercase tracking-wider">
+              <tr className="eyebrow">
                 <th className="py-3 px-4">System Capability</th>
                 <th className="py-3 px-4 text-center">
                   <div className="flex items-center justify-center gap-1">

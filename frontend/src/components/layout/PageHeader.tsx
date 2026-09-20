@@ -45,14 +45,13 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       )}
 
       {/* Eyebrow marker convention */}
-      <div className="text-xs uppercase tracking-wider font-semibold text-ink/75 flex items-center gap-1.5">
-        <span className="w-1.5 h-1.5 bg-ink inline-block shrink-0" />
+      <div className="eyebrow">
         <span>{eyebrow}</span>
       </div>
 
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-[32px] font-medium tracking-tight text-ink leading-tight">
+          <h1 className="h1">
             {title}
           </h1>
           {description && <p className="text-sm text-ink/70 mt-1">{description}</p>}

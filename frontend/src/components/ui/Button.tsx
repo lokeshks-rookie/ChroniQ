@@ -31,23 +31,18 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     }[size];
 
     const variantClasses = {
-      primary:
-        'group bg-ink text-base font-medium rounded-full hover:opacity-95 active:scale-[0.98] transition-all duration-150 inline-flex items-center justify-center border border-transparent shadow-sm',
-      secondary:
-        'bg-transparent text-ink font-medium rounded-full border border-ink/20 hover:bg-ink/5 active:bg-ink/10 transition-colors inline-flex items-center justify-center',
-      ghost:
-        'bg-transparent text-ink font-medium rounded-lg hover:bg-ink/5 active:bg-ink/10 transition-colors inline-flex items-center justify-center',
-      danger:
-        'bg-danger text-base font-medium rounded-full hover:opacity-90 active:scale-[0.98] transition-all inline-flex items-center justify-center shadow-sm',
-      inverted:
-        'bg-base text-ink font-medium rounded-full hover:bg-base/90 active:scale-[0.98] transition-all inline-flex items-center justify-center shadow-sm',
+      primary: 'btn-primary',
+      secondary: 'btn-secondary',
+      ghost: 'bg-transparent text-ink font-medium rounded-lg hover:bg-ink/5 active:bg-ink/10 transition-colors inline-flex items-center justify-center',
+      danger: 'bg-danger text-base font-medium rounded-full hover:opacity-90 active:scale-[0.98] transition-all inline-flex items-center justify-center shadow-sm',
+      inverted: 'bg-base text-ink font-medium rounded-full hover:bg-base/90 active:scale-[0.98] transition-all inline-flex items-center justify-center shadow-sm',
     }[variant];
 
     return (
       <button
         ref={ref}
         disabled={disabled || isLoading}
-        className={`${sizeClasses} ${variantClasses} disabled:opacity-50 disabled:pointer-events-none cursor-pointer select-none ${className}`}
+        className={`btn ${variantClasses} disabled:opacity-50 disabled:pointer-events-none ${className}`}
         {...props}
       >
         {isLoading ? (
@@ -58,7 +53,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         <span>{children}</span>
 
         {showArrowBadge && !isLoading && (
-          <span className="w-5 h-5 rounded-full bg-accent text-ink inline-flex items-center justify-center ml-1 transition-transform duration-200 group-hover:rotate-45 shrink-0">
+          <span className="icon-badge">
             <ArrowRight className="w-3 h-3" strokeWidth={2} />
           </span>
         )}

@@ -19,20 +19,23 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
     ref
   ) => {
     const variantClasses = {
-      base: 'bg-base text-ink border border-ink/10',
-      ink: 'bg-ink text-base border border-ink/20',
-      accent: 'bg-accent text-ink border border-accent/20',
-      cream: 'bg-cream text-ink border border-cream/30',
+      base: 'card',
+      ink: 'card card-ink',
+      accent: 'card bg-accent text-ink border border-accent/20',
+      cream: 'card card-cream',
     }[variant];
 
     const paddingClasses = {
-      none: 'p-0',
-      sm: 'p-4',
-      md: 'p-6',
-      lg: 'p-8',
+      none: '!p-0',
+      sm: '!p-4',
+      md: '', /* defaults to normal card padding */
+      lg: '!p-8',
     }[padding];
 
-    const radiusClasses = radius === 'panel' ? 'rounded-panel' : 'rounded-card';
+    const radiusClasses = {
+      card: '', /* defaults to normal card radius */
+      panel: '!rounded-xl',
+    }[radius];
 
     return (
       <div

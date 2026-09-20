@@ -253,16 +253,15 @@ export const BroadcastsPage: React.FC = () => {
         <div className="lg:col-span-7 space-y-4">
           <Card padding="lg" className="space-y-5">
             <div>
-              <div className="text-xs uppercase tracking-wider font-semibold text-ink/70 flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 bg-ink inline-block" />
+              <div className="eyebrow flex items-center gap-1.5">
                 <span>COMPOSE BROADCAST</span>
               </div>
-              <h3 className="text-lg font-medium text-ink mt-0.5">Advisory Dispatcher</h3>
+              <h3 className="h2 mt-0.5">Advisory Dispatcher</h3>
             </div>
 
             {/* Broadcast Type Pills */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70">
+              <label className="eyebrow block">
                 Notice Type *
               </label>
               <div className="flex gap-2">
@@ -289,7 +288,7 @@ export const BroadcastsPage: React.FC = () => {
 
             {/* Audience Scope Selection */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70">
+              <label className="eyebrow block">
                 Target Audience *
               </label>
               <div className="grid grid-cols-3 gap-2">
@@ -336,7 +335,7 @@ export const BroadcastsPage: React.FC = () => {
             {/* Specific configurations for Delay */}
             {broadcastType === 'delay' && (
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70">
+                <label className="eyebrow block">
                   Delay Duration
                 </label>
                 <div className="flex gap-2">
@@ -387,7 +386,7 @@ export const BroadcastsPage: React.FC = () => {
 
             {/* Channels Selection */}
             <div className="p-3 rounded-card border border-ink/10 bg-base space-y-2">
-              <div className="text-xs font-semibold uppercase tracking-wider text-ink/70">
+              <div className="eyebrow">
                 Active Notification Channels
               </div>
               <div className="flex flex-wrap items-center gap-4 text-xs">
@@ -451,8 +450,7 @@ export const BroadcastsPage: React.FC = () => {
         <div className="lg:col-span-5 space-y-4">
           <Card padding="md" className="space-y-4">
             <div>
-              <div className="text-xs uppercase tracking-wider font-semibold text-ink/70 flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 bg-ink inline-block" />
+              <div className="eyebrow flex items-center gap-1.5">
                 <span>DEVICE PREVIEW</span>
               </div>
               <h3 className="text-base font-medium text-ink mt-0.5">Patient Mobile Screen Appearance</h3>
@@ -472,7 +470,7 @@ export const BroadcastsPage: React.FC = () => {
               {/* Simulated push notification banner */}
               <div className="p-3 rounded-card bg-ink text-base text-xs space-y-1.5 shadow-md">
                 <div className="flex items-center justify-between text-[10px] text-base/70">
-                  <span className="font-bold uppercase tracking-wider">ChroniQ Patient App</span>
+                  <span className="eyebrow">ChroniQ Patient App</span>
                   <span>Now</span>
                 </div>
                 <div className="font-semibold text-accent text-xs">
@@ -506,8 +504,7 @@ export const BroadcastsPage: React.FC = () => {
       {/* Broadcast History Table */}
       <Card padding="md" className="space-y-4">
         <div>
-          <div className="text-xs uppercase tracking-wider font-semibold text-ink/70 flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 bg-ink inline-block" />
+          <div className="eyebrow flex items-center gap-1.5">
             <span>DISPATCH LOG</span>
           </div>
           <h3 className="text-base font-medium text-ink mt-0.5">Broadcast Transmission History</h3>

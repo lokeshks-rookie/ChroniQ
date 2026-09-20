@@ -211,11 +211,10 @@ export const WalkInPage: React.FC = () => {
         <div className="lg:col-span-7">
           <Card padding="lg" className="space-y-6">
             <div>
-              <div className="text-xs uppercase tracking-wider font-semibold text-ink/70 flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 bg-ink inline-block" />
+              <div className="eyebrow flex items-center gap-1.5">
                 <span>PATIENT DETAILS</span>
               </div>
-              <h2 className="text-xl font-medium text-ink mt-0.5">Quick Intake Form</h2>
+              <h2 className="h2 mt-0.5">Quick Intake Form</h2>
             </div>
 
             <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
@@ -281,7 +280,7 @@ export const WalkInPage: React.FC = () => {
 
               {/* Doctor Selection with Wait Times Comparison */}
               <div className="space-y-2">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70">
+                <label className="eyebrow block">
                   Assign Doctor *
                 </label>
                 <div className="grid grid-cols-1 gap-2">
@@ -340,7 +339,7 @@ export const WalkInPage: React.FC = () => {
 
               {/* Priority Selector */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-ink/70">
+                <label className="eyebrow block">
                   Triage Priority
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -439,11 +438,10 @@ export const WalkInPage: React.FC = () => {
           ) : (
             <Card padding="lg" className="space-y-4 text-center">
               <div>
-                <div className="text-xs uppercase tracking-wider font-semibold text-ink/70 flex items-center justify-center gap-1.5">
-                  <span className="w-1.5 h-1.5 bg-ink inline-block" />
+                <div className="eyebrow flex items-center gap-1.5">
                   <span>PREVIEW TICKET</span>
                 </div>
-                <h3 className="text-lg font-medium text-ink mt-0.5">80mm Thermal Slip Preview</h3>
+                <h3 className="h2 mt-0.5">80mm Thermal Slip Preview</h3>
               </div>
 
               <div className="border border-dashed border-ink/20 rounded-card p-6 bg-base/50 space-y-3 font-mono text-xs text-left">
@@ -481,8 +479,7 @@ export const WalkInPage: React.FC = () => {
 
           {/* Today's Recent Walk-Ins List */}
           <Card padding="md">
-            <div className="text-xs uppercase tracking-wider font-semibold text-ink/70 flex items-center gap-1.5 mb-3">
-              <span className="w-1.5 h-1.5 bg-ink inline-block" />
+            <div className="eyebrow mb-3 flex items-center gap-1.5">
               <span>TODAY'S WALK-INS</span>
             </div>
 

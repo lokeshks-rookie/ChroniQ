@@ -643,7 +643,7 @@ export const MyQueuePage: React.FC = () => {
 
                     <div className="flex items-center gap-2 text-[11px]">
                       {autosaveStatus === 'saving' && <span className="text-accent animate-pulse">Saving…</span>}
-                      {autosaveStatus === 'saved' && <span className="text-success font-medium">✓ Saved just now</span>}
+                      {autosaveStatus === 'saved' && <span className="text-success font-medium">Saved just now</span>}
                       <span className="text-ink/50 font-mono">{noteText.length} chars</span>
                     </div>
                   </div>

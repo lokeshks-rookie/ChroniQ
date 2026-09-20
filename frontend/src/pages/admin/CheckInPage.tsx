@@ -233,7 +233,7 @@ export const CheckInPage: React.FC = () => {
           {/* Search Results Display */}
           {hasSearched && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-ink/70">
+              <div className="eyebrow flex items-center justify-between">
                 <span>Matching Appointments ({matchedAppointments.length})</span>
               </div>
 
@@ -398,8 +398,7 @@ export const CheckInPage: React.FC = () => {
         <div className="lg:col-span-4 space-y-4">
           {/* Daily Counters */}
           <Card padding="md" className="space-y-3">
-            <div className="text-xs uppercase tracking-wider font-semibold text-ink/70 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 bg-ink inline-block" />
+            <div className="eyebrow flex items-center gap-1.5">
               <span>TODAY'S ARRIVALS</span>
             </div>
 
@@ -421,7 +420,7 @@ export const CheckInPage: React.FC = () => {
 
           {/* Recent Arrivals List */}
           <Card padding="md" className="space-y-3">
-            <div className="text-xs uppercase tracking-wider font-semibold text-ink/70 flex items-center justify-between">
+            <div className="eyebrow flex items-center justify-between">
               <span>Live arrival timeline</span>
               <span className="text-[10px] text-ink/50">Today</span>
             </div>

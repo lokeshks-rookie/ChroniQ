@@ -3,12 +3,6 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, Cross, ChevronDown } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 
-const NAV_LINKS = [
-  { label: 'Find a Doctor', href: '/app/search' },
-  { label: 'Hospitals', href: '/hospitals' },
-  { label: 'How it Works', href: '/#how-it-works' },
-];
-
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -104,44 +98,8 @@ export default function Navbar() {
           </span>
         </Link>
 
-        {/* ── Desktop nav ── */}
-        <nav
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-          }}
-          className="hidden md:flex"
-        >
-          {NAV_LINKS.map((link) => (
-            <Link
-              key={link.label}
-              to={link.href}
-              style={{
-                padding: '8px 14px',
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: 500,
-                color: 'var(--color-muted)',
-                textDecoration: 'none',
-                transition: 'background 0.2s, color 0.2s',
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-ink)';
-                (e.currentTarget as HTMLAnchorElement).style.backgroundColor = 'rgba(154,110,86,0.08)';
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLAnchorElement).style.color = 'var(--color-muted)';
-                (e.currentTarget as HTMLAnchorElement).style.backgroundColor = 'transparent';
-              }}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-
         {/* ── Desktop CTAs ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }} className="hidden md:flex">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {isAuthenticated ? (
             <>
               <Link
@@ -246,128 +204,6 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* ── Mobile hamburger ── */}
-        <button
-          className="md:hidden"
-          onClick={() => setOpen((p) => !p)}
-          aria-label={open ? 'Close menu' : 'Open menu'}
-          style={{
-            width: '40px',
-            height: '40px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: '8px',
-            border: 'none',
-            backgroundColor: 'transparent',
-            cursor: 'pointer',
-            color: 'var(--color-ink)',
-            transition: 'background 0.2s',
-          }}
-        >
-          {open ? <X size={22} /> : <Menu size={22} />}
-        </button>
-      </div>
-
-      {/* ── Mobile drawer ── */}
-      <div
-        className="md:hidden"
-        style={{
-          overflow: 'hidden',
-          maxHeight: open ? '400px' : '0',
-          transition: 'max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
-          backgroundColor: 'var(--color-base)',
-          borderTop: open ? '1px solid rgba(154,110,86,0.15)' : 'none',
-        }}
-      >
-        <nav style={{ padding: '16px 24px 8px' }}>
-          {NAV_LINKS.map((link) => (
-            <Link
-              key={link.label}
-              to={link.href}
-              style={{
-                display: 'block',
-                padding: '12px 4px',
-                borderBottom: '1px solid rgba(154,110,86,0.1)',
-                fontSize: '15px',
-                fontWeight: 500,
-                color: 'var(--color-muted)',
-                textDecoration: 'none',
-              }}
-            >
-              {link.label}
-            </Link>
-          ))}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', paddingTop: '16px', paddingBottom: '8px' }}>
-            {isAuthenticated ? (
-              <>
-                <Link
-                  to={getDashboardLink()}
-                  style={{
-                    padding: '12px 0',
-                    textAlign: 'center',
-                    borderRadius: '999px',
-                    border: '1.5px solid rgba(25,8,1,0.2)',
-                    fontSize: '15px',
-                    fontWeight: 500,
-                    color: 'var(--color-ink)',
-                    textDecoration: 'none',
-                  }}
-                >
-                  Dashboard
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  style={{
-                    padding: '12px 0',
-                    borderRadius: '999px',
-                    backgroundColor: 'var(--color-ink)',
-                    color: 'var(--color-base)',
-                    fontSize: '15px',
-                    fontWeight: 600,
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Log out
-                </button>
-              </>
-            ) : (
-              <>
-                <Link
-                  to="/login"
-                  style={{
-                    padding: '12px 0',
-                    textAlign: 'center',
-                    borderRadius: '999px',
-                    border: '1.5px solid rgba(25,8,1,0.2)',
-                    fontSize: '15px',
-                    fontWeight: 500,
-                    color: 'var(--color-ink)',
-                    textDecoration: 'none',
-                  }}
-                >
-                  Log in
-                </Link>
-                <Link
-                  to="/register"
-                  style={{
-                    padding: '12px 0',
-                    textAlign: 'center',
-                    borderRadius: '999px',
-                    backgroundColor: 'var(--color-ink)',
-                    color: 'var(--color-base)',
-                    fontSize: '15px',
-                    fontWeight: 600,
-                    textDecoration: 'none',
-                  }}
-                >
-                  Get started
-                </Link>
-              </>
-            )}
-          </div>
-        </nav>
       </div>
     </header>
   );

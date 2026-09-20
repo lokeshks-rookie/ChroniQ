@@ -186,11 +186,10 @@ export const DashboardPage: React.FC = () => {
       <section className="bg-ink text-base rounded-panel p-6 md:p-8 border border-ink/20 shadow-sm space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-base/15 pb-4">
           <div>
-            <div className="text-xs uppercase tracking-wider font-semibold text-accent flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 bg-accent inline-block" />
+            <div className="eyebrow">
               <span>NOW SERVING</span>
             </div>
-            <h2 className="text-xl md:text-2xl font-medium text-base mt-1">
+            <h2 className="h2 mt-1">
               Active Outpatient OPD Counters
             </h2>
           </div>
@@ -211,7 +210,7 @@ export const DashboardPage: React.FC = () => {
               className="p-4 rounded-card bg-base/5 border border-base/10 hover:border-accent/60 hover:bg-base/10 transition-all text-left flex flex-col justify-between group"
             >
               <div>
-                <div className="text-xs font-semibold text-base/70 uppercase tracking-wider truncate">
+                <div className="eyebrow">
                   {department.name}
                 </div>
                 <div className="text-2xl md:text-3xl font-extrabold font-mono tracking-wider text-base mt-2 tabular-nums">
@@ -243,11 +242,10 @@ export const DashboardPage: React.FC = () => {
           <Card padding="md">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div>
-                <div className="text-xs uppercase tracking-wider font-semibold text-ink/70 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 bg-ink inline-block" />
+                <div className="eyebrow">
                   <span>CONSULTANT STATUS</span>
                 </div>
-                <h3 className="text-lg font-medium text-ink mt-0.5">Doctor Availability</h3>
+                <h3 className="h2 mt-0.5">Doctor Availability</h3>
               </div>
 
               {/* Department filter pills */}
@@ -255,11 +253,7 @@ export const DashboardPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setDeptFilter('all')}
-                  className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors ${
-                    deptFilter === 'all'
-                      ? 'bg-accent text-ink font-semibold'
-                      : 'border border-ink/20 text-ink hover:border-ink/40'
-                  }`}
+                  className={`badge ${deptFilter === 'all' ? 'active' : ''}`}
                 >
                   All
                 </button>
@@ -268,11 +262,7 @@ export const DashboardPage: React.FC = () => {
                     key={dep.id}
                     type="button"
                     onClick={() => setDeptFilter(dep.id)}
-                    className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors ${
-                      deptFilter === dep.id
-                        ? 'bg-accent text-ink font-semibold'
-                        : 'border border-ink/20 text-ink hover:border-ink/40'
-                    }`}
+                    className={`badge ${deptFilter === dep.id ? 'active' : ''}`}
                   >
                     {dep.token_prefix}
                   </button>
@@ -331,11 +321,10 @@ export const DashboardPage: React.FC = () => {
           {/* Hourly Load Chart */}
           <Card padding="md">
             <div className="mb-4">
-              <div className="text-xs uppercase tracking-wider font-semibold text-ink/70 flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 bg-ink inline-block" />
+              <div className="eyebrow">
                 <span>LOAD DISTRIBUTION</span>
               </div>
-              <h3 className="text-lg font-medium text-ink mt-0.5">Hourly Patient Footfall vs Queue Load</h3>
+              <h3 className="h2 mt-0.5">Hourly Patient Footfall vs Queue Load</h3>
             </div>
             <HourlyLoadChart data={hourlyData} />
           </Card>
@@ -346,11 +335,10 @@ export const DashboardPage: React.FC = () => {
           <Card padding="md">
             <div className="flex items-center justify-between mb-4 border-b border-ink/10 pb-3">
               <div>
-                <div className="text-xs uppercase tracking-wider font-semibold text-ink/70 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 bg-ink inline-block" />
+                <div className="eyebrow">
                   <span>OPERATIONAL ADVISORIES</span>
                 </div>
-                <h3 className="text-lg font-medium text-ink mt-0.5">Live Alerts Feed</h3>
+                <h3 className="h2 mt-0.5">Live Alerts Feed</h3>
               </div>
               <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-ink/10 text-ink">
                 {activeAlerts.length}

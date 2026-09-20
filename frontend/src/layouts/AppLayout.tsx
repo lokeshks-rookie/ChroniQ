@@ -5,6 +5,7 @@ import {
   HelpCircle, LogOut, Menu, X, ChevronDown, MoreHorizontal
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import { DesktopSidebar } from '@/components/layout/Sidebar';
 import { useNotificationsStore } from '@/store/notificationsStore';
 
 const NAV = [
@@ -63,92 +64,12 @@ export default function AppLayout() {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--color-base)' }}>
-      {/* ── Desktop Sidebar ── */}
-      <aside
-        style={{
-          width: '240px', flexShrink: 0, backgroundColor: 'var(--color-ink)',
-          display: 'flex', flexDirection: 'column', padding: '24px 12px',
-          position: 'sticky', top: 0, height: '100vh', overflowY: 'auto',
-        }}
-        className="hidden md:flex"
-      >
-        <Link
-          to="/"
-          style={{
-            display: 'flex', alignItems: 'center', gap: '8px',
-            padding: '0 8px', marginBottom: '32px', textDecoration: 'none',
-          }}
-        >
-          <span style={{
-            width: '28px', height: '28px', borderRadius: '6px',
-            backgroundColor: 'var(--color-accent)', display: 'flex',
-            alignItems: 'center', justifyContent: 'center',
-          }}>
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-              <rect x="6.5" y="2" width="3" height="12" rx="1.5" fill="#FDF9F0" />
-              <rect x="2" y="6.5" width="12" height="3" rx="1.5" fill="#FDF9F0" />
-            </svg>
-          </span>
-          <span style={{ fontWeight: 700, fontSize: '18px', color: 'var(--color-base)', letterSpacing: '-0.02em' }}>
-            ChroniQ
-          </span>
-        </Link>
-
-        <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-          {NAV.map(({ icon: Icon, label, href }) => {
-            const active = isActive(href);
-            return (
-              <Link
-                key={href}
-                to={href}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '10px',
-                  padding: '10px 12px', borderRadius: '10px',
-                  fontSize: '14px', fontWeight: active ? 600 : 500,
-                  color: active ? 'var(--color-base)' : 'rgba(253,249,240,0.65)',
-                  backgroundColor: active ? 'rgba(253,249,240,0.1)' : 'transparent',
-                  textDecoration: 'none', transition: 'background 0.2s, color 0.2s',
-                  position: 'relative',
-                }}
-              >
-                <Icon size={17} strokeWidth={1.8} />
-                {label}
-                {label === 'Notifications' && unreadCount > 0 && (
-                  <span style={{
-                    position: 'absolute', right: '12px',
-                    width: '18px', height: '18px', borderRadius: '50%',
-                    backgroundColor: 'var(--color-accent)', color: 'var(--color-base)',
-                    fontSize: '10px', fontWeight: 700,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    {unreadCount}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div style={{ paddingTop: '16px', borderTop: '1px solid rgba(253,249,240,0.08)' }}>
-          <p style={{ fontSize: '13px', color: 'rgba(253,249,240,0.45)', padding: '0 12px 12px' }}>
-            {user?.name}
-          </p>
-          <button
-            onClick={handleLogout}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '10px',
-              padding: '10px 12px', borderRadius: '10px',
-              fontSize: '14px', fontWeight: 500, color: 'rgba(253,249,240,0.5)',
-              background: 'none', border: 'none', cursor: 'pointer',
-              width: '100%', fontFamily: 'var(--font-sans)', transition: 'color 0.2s',
-            }}
-          >
-            <LogOut size={17} strokeWidth={1.8} />
-            Log out
-          </button>
-        </div>
-      </aside>
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', backgroundColor: 'var(--color-base)' }}>
+      <DesktopSidebar
+        navItems={NAV.map(n => ({ ...n, badge: n.label === 'Notifications' ? unreadCount : 0 }))}
+        isActive={isActive}
+        onLogout={handleLogout}
+      />
 
       {/* ── Main Content Area ── */}
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
@@ -162,13 +83,11 @@ export default function AppLayout() {
         }}>
           {/* Mobile hamburger */}
           <button
-            className="md:hidden"
+            className="md:hidden flex items-center justify-center rounded-lg cursor-pointer text-ink"
             onClick={() => setMobileDrawerOpen(!mobileDrawerOpen)}
             style={{
-              width: '40px', height: '40px', display: 'flex',
-              alignItems: 'center', justifyContent: 'center',
-              borderRadius: '8px', border: 'none', backgroundColor: 'transparent',
-              cursor: 'pointer', color: 'var(--color-ink)',
+              width: '40px', height: '40px',
+              border: 'none', backgroundColor: 'transparent',
             }}
           >
             {mobileDrawerOpen ? <X size={22} /> : <Menu size={22} />}
@@ -311,88 +230,10 @@ export default function AppLayout() {
         )}
 
         {/* ── Page Content ── */}
-        <main style={{ flex: 1, padding: '24px', paddingBottom: '96px' }}>
+        <main style={{ flex: 1, padding: '24px', paddingBottom: '96px', overflowY: 'auto' }}>
           <Outlet />
         </main>
 
-        {/* ── Mobile Bottom Tab Bar ── */}
-        <nav
-          className="md:hidden"
-          style={{
-            position: 'fixed', bottom: 0, left: 0, right: 0,
-            height: '72px', backgroundColor: 'var(--color-base)',
-            borderTop: '1px solid rgba(154,110,86,0.1)',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-around',
-            zIndex: 40, paddingBottom: 'env(safe-area-inset-bottom)',
-          }}
-        >
-          {BOTTOM_NAV.map(({ icon: Icon, label, href }) => {
-            if (href === '__more__') {
-              return (
-                <div key="more" style={{ position: 'relative' }}>
-                  <button
-                    onClick={() => setMoreMenuOpen(!moreMenuOpen)}
-                    style={{
-                      display: 'flex', flexDirection: 'column', alignItems: 'center',
-                      gap: '4px', background: 'none', border: 'none', cursor: 'pointer',
-                      color: moreMenuOpen ? 'var(--color-accent)' : 'var(--color-muted)',
-                      fontFamily: 'var(--font-sans)',
-                    }}
-                  >
-                    <Icon size={20} strokeWidth={1.8} />
-                    <span style={{ fontSize: '10px', fontWeight: 600 }}>{label}</span>
-                  </button>
-                  {moreMenuOpen && (
-                    <div style={{
-                      position: 'absolute', bottom: '100%', right: '-16px', marginBottom: '12px',
-                      width: '180px', backgroundColor: 'var(--color-base)',
-                      borderRadius: '12px', border: '1px solid rgba(154,110,86,0.12)',
-                      boxShadow: '0 -8px 24px rgba(25,8,1,0.1)', overflow: 'hidden',
-                    }}>
-                      {NAV.filter((n) => !BOTTOM_NAV.find((b) => b.href === n.href)).map(({ icon: NIcon, label: nLabel, href: nHref }) => (
-                        <Link
-                          key={nHref}
-                          to={nHref}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: '10px',
-                            padding: '12px 16px', fontSize: '14px', fontWeight: 500,
-                            color: 'var(--color-ink)', textDecoration: 'none',
-                            borderBottom: '1px solid rgba(154,110,86,0.06)',
-                          }}
-                        >
-                          <NIcon size={16} /> {nLabel}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            }
-            const active = isActive(href);
-            return (
-              <Link
-                key={href}
-                to={href}
-                style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  gap: '4px', textDecoration: 'none',
-                  color: active ? 'var(--color-accent)' : 'var(--color-muted)',
-                  position: 'relative',
-                }}
-              >
-                <Icon size={20} strokeWidth={1.8} />
-                <span style={{ fontSize: '10px', fontWeight: 600 }}>{label}</span>
-                {label === 'Alerts' && unreadCount > 0 && (
-                  <span style={{
-                    position: 'absolute', top: '-2px', right: '-4px',
-                    width: '8px', height: '8px', borderRadius: '50%',
-                    backgroundColor: 'var(--color-accent)',
-                  }} />
-                )}
-              </Link>
-            );
-          })}
-        </nav>
       </div>
     </div>
   );

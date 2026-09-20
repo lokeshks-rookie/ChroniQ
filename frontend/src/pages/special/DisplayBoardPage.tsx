@@ -550,7 +550,7 @@ export const DisplayBoardPage: React.FC = () => {
                     <span className="text-2xl lg:text-3xl font-bold font-mono tracking-tight text-base tabular-nums">
                       {item.token}
                     </span>
-                    <span className="text-xs text-base/70 uppercase tracking-wider font-semibold">
+                    <span className="eyebrow">
                       {item.room}
                     </span>
                   </div>

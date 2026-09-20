@@ -366,7 +366,7 @@ function MapPlaceholder() {
         color: 'var(--color-info)', fontSize: '12px', fontWeight: 600,
         border: '1px solid rgba(59,91,165,0.15)',
       }}>
-        📍 Team note: integrate Leaflet + OSM when ready
+        Team note: integrate Leaflet + OSM when ready
       </span>
     </div>
   );

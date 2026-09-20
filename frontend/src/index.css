@@ -33,9 +33,40 @@
   --spacing-18: 4.5rem;
   --spacing-22: 5.5rem;
 
+  /* ── Chart tokens ── */
+  --chart-1: #190801;
+  --chart-2: #9A6E56;
+  --chart-3: #B88C70;
+  --chart-4: #552C1B;
+  --chart-5: #5E4A3C;
+
   /* ── Border radius ── */
   --radius-card: 14px;
   --radius-pill: 999px;
+}
+
+:root {
+  --chart-1: #190801;
+  --chart-2: #9A6E56;
+  --chart-3: #B88C70;
+  --chart-4: #552C1B;
+  --chart-5: #5E4A3C;
+}
+
+/* ── Chart Interactive Hover Effects ── */
+.recharts-surface:hover .recharts-bar-rectangle:not(:hover) {
+  opacity: 0.35 !important;
+  transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.recharts-bar-rectangle {
+  transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), filter 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+
+.recharts-bar-rectangle:hover {
+  opacity: 1 !important;
+  filter: brightness(1.08);
 }
 
 /* ── Global resets & base ── */
@@ -43,8 +74,6 @@
 *::before,
 *::after {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
 }
 
 html {
@@ -118,3 +147,150 @@ body {
     padding-bottom: 56px;
   }
 }
+
+/* ── Brand Components (Medical Queue App) ── */
+
+/* Typography */
+.h1 {
+  font-size: 40px;
+  font-weight: 500;
+  line-height: 1.1;
+  color: var(--color-ink);
+}
+@media (max-width: 768px) { .h1 { font-size: 28px; } }
+
+.h2 {
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--color-ink);
+}
+@media (max-width: 768px) { .h2 { font-size: 20px; } }
+
+/* Eyebrow marker (solid square bullet) */
+.eyebrow::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background-color: currentColor;
+  margin-right: 8px;
+  vertical-align: middle;
+  position: relative;
+  top: -1px;
+}
+
+/* Cards */
+.card {
+  background-color: var(--color-base);
+  border-radius: var(--radius-card);
+  padding: 24px;
+  box-shadow: 0 4px 12px rgba(25, 8, 1, 0.04), 0 1px 3px rgba(25, 8, 1, 0.02);
+  border: 1px solid rgba(154, 110, 86, 0.1);
+}
+@media (min-width: 768px) {
+  .card { padding: 32px; }
+}
+.card-cream {
+  background-color: var(--color-cream);
+  color: var(--color-ink);
+  box-shadow: none;
+  border: none;
+}
+.card-ink {
+  background-color: var(--color-ink);
+  color: var(--color-base);
+  box-shadow: none;
+  border: none;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 20px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  text-decoration: none;
+}
+
+.btn-primary {
+  background-color: var(--color-ink);
+  color: var(--color-base);
+  padding-right: 8px; /* Less padding to dock the icon badge */
+}
+.btn-primary:hover {
+  transform: scale(1.02);
+}
+.btn-primary .icon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: var(--color-accent);
+  color: var(--color-ink);
+  margin-left: 4px;
+  transition: transform 0.2s ease;
+}
+.btn-primary:hover .icon-badge {
+  transform: rotate(45deg);
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: var(--color-ink);
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius-card); /* Secondary gets card radius per guidelines */
+}
+.btn-secondary:hover {
+  background-color: rgba(25, 8, 1, 0.04);
+}
+
+/* Badges / Tags */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 16px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background-color: var(--color-ink);
+  color: var(--color-base);
+  cursor: pointer;
+  border: none;
+  transition: background-color 0.2s, color 0.2s;
+}
+.badge.active {
+  background-color: var(--color-accent);
+  color: var(--color-ink);
+}
+.badge:hover:not(.active) {
+  background-color: var(--color-ink-light);
+}
+
+/* Accordion */
+.accordion-row {
+  border-bottom: 1px solid rgba(25, 8, 1, 0.1);
+  padding: 24px 0;
+}
+.accordion-row:first-child {
+  border-top: 1px solid rgba(25, 8, 1, 0.1);
+}
+
+/* Functional colors (Helpers) */
+.text-success { color: var(--color-success); }
+.text-danger { color: var(--color-danger); }
+.text-info { color: var(--color-info); }
+.bg-success { background-color: var(--color-success); color: #fff; }
+.bg-danger { background-color: var(--color-danger); color: #fff; }
+.bg-info { background-color: var(--color-info); color: #fff; }

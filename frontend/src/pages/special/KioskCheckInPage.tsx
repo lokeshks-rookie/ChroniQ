@@ -406,7 +406,7 @@ export const KioskCheckInPage: React.FC = () => {
               className="w-9 h-9 object-contain shrink-0"
             />
             <div>
-              <div className="text-xs font-bold uppercase tracking-wider text-ink/60">
+              <div className="eyebrow">
                 {hospital.name}
               </div>
               <div className="text-xl font-bold text-ink">ChroniQ Self-Service</div>

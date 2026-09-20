@@ -188,11 +188,10 @@ export const SettingsPage: React.FC = () => {
           {activeSection === 'policies' && (
             <Card padding="lg" className="space-y-6">
               <div>
-                <div className="text-xs uppercase tracking-wider font-semibold text-ink/70 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 bg-ink inline-block" />
+                <div className="eyebrow flex items-center gap-1.5">
                   <span>INTAKE POLICIES</span>
                 </div>
-                <h3 className="text-lg font-medium text-ink mt-0.5">Queue and Booking Governance</h3>
+                <h3 className="h2 mt-0.5">Queue and Booking Governance</h3>
               </div>
 
               {/* Grace Period */}
@@ -298,11 +297,10 @@ export const SettingsPage: React.FC = () => {
           {activeSection === 'profile' && (
             <Card padding="lg" className="space-y-4">
               <div>
-                <div className="text-xs uppercase tracking-wider font-semibold text-ink/70 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 bg-ink inline-block" />
+                <div className="eyebrow flex items-center gap-1.5">
                   <span>FACILITY PROFILE</span>
                 </div>
-                <h3 className="text-lg font-medium text-ink mt-0.5">Facility Identity & Geo Coordinates</h3>
+                <h3 className="h2 mt-0.5">Facility Identity & Geo Coordinates</h3>
               </div>
 
               <Input
@@ -363,7 +361,7 @@ export const SettingsPage: React.FC = () => {
               {/* Geo Location */}
               <div className="p-4 rounded-card border border-ink/10 bg-base/50 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-ink/70 flex items-center gap-1.5">
+                  <span className="eyebrow flex items-center gap-1.5">
                     <MapPin className="w-3.5 h-3.5" />
                     <span>Geo Location Coordinates (GeoJSON Point)</span>
                   </span>
@@ -404,11 +402,10 @@ export const SettingsPage: React.FC = () => {
           {activeSection === 'timings' && (
             <Card padding="lg" className="space-y-6">
               <div>
-                <div className="text-xs uppercase tracking-wider font-semibold text-ink/70 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 bg-ink inline-block" />
+                <div className="eyebrow flex items-center gap-1.5">
                   <span>FACILITY HOURS</span>
                 </div>
-                <h3 className="text-lg font-medium text-ink mt-0.5">Operating Hours and Hospital Holidays</h3>
+                <h3 className="h2 mt-0.5">Operating Hours and Hospital Holidays</h3>
               </div>
 
               <div className="p-4 rounded-card border border-ink/10 bg-base">
@@ -439,11 +436,10 @@ export const SettingsPage: React.FC = () => {
           {activeSection === 'notifications' && (
             <Card padding="lg" className="space-y-6">
               <div>
-                <div className="text-xs uppercase tracking-wider font-semibold text-ink/70 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 bg-ink inline-block" />
+                <div className="eyebrow flex items-center gap-1.5">
                   <span>MESSAGE TEMPLATES</span>
                 </div>
-                <h3 className="text-lg font-medium text-ink mt-0.5">Automated Patient Alert Messages</h3>
+                <h3 className="h2 mt-0.5">Automated Patient Alert Messages</h3>
               </div>
 
               {/* Template selector pills */}
@@ -466,7 +462,7 @@ export const SettingsPage: React.FC = () => {
 
               {/* Channels */}
               <div className="p-4 rounded-card border border-ink/10 bg-base space-y-3">
-                <div className="text-xs font-semibold uppercase tracking-wider text-ink/70">
+                <div className="eyebrow">
                   Dispatched Channels
                 </div>
                 <div className="flex flex-wrap items-center gap-6 text-xs">
@@ -499,7 +495,7 @@ export const SettingsPage: React.FC = () => {
 
               {/* Variable Chips */}
               <div className="space-y-1.5">
-                <div className="text-xs font-semibold uppercase tracking-wider text-ink/70">
+                <div className="eyebrow">
                   Click Variable to Insert into Body:
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -519,7 +515,7 @@ export const SettingsPage: React.FC = () => {
               {/* Template Body Input & SMS Counter */}
               <div className="space-y-1">
                 <div className="flex justify-between text-xs text-ink/70">
-                  <label className="font-semibold uppercase tracking-wider">Template Text Body *</label>
+                  <label className="eyebrow">Template Text Body *</label>
                   <span className="font-mono">{currentTemplate.template_text.length} / 160 chars (1 SMS segment)</span>
                 </div>
                 <textarea
@@ -532,7 +528,7 @@ export const SettingsPage: React.FC = () => {
 
               {/* Live Preview rendered in phone-shaped card */}
               <div className="p-4 rounded-card border border-ink/10 bg-base/50 space-y-2">
-                <div className="text-xs font-semibold uppercase tracking-wider text-ink/70 flex items-center gap-1.5">
+                <div className="eyebrow flex items-center gap-1.5">
                   <MessageSquare className="w-3.5 h-3.5" />
                   <span>Sample Patient SMS / Push Preview</span>
                 </div>

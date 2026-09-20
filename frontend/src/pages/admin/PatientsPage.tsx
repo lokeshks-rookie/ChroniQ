@@ -332,7 +332,7 @@ export const PatientsPage: React.FC = () => {
             {drawerTab === 'overview' && (
               <div className="space-y-4 text-xs">
                 <div className="p-4 rounded-card border border-ink/10 bg-base space-y-2">
-                  <div className="font-semibold uppercase tracking-wider text-ink/70">Personal Info</div>
+                  <div className="eyebrow">Personal Info</div>
                   <div className="grid grid-cols-2 gap-2 text-ink pt-1">
                     <div>
                       <span className="text-ink/60">Full Name:</span>
@@ -355,7 +355,7 @@ export const PatientsPage: React.FC = () => {
 
                 {/* Family members simulation */}
                 <div className="p-4 rounded-card border border-ink/10 bg-base space-y-2">
-                  <div className="font-semibold uppercase tracking-wider text-ink/70">Linked Family Members</div>
+                  <div className="eyebrow">Linked Family Members</div>
                   <div className="divide-y divide-ink/10">
                     <div className="py-2 flex justify-between">
                       <span className="font-medium text-ink">Vijay (Son, 14 yrs)</span>

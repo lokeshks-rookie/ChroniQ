@@ -13,16 +13,15 @@ import {
   Star,
 } from 'lucide-react';
 import {
-  ResponsiveContainer,
   BarChart,
   Bar,
   LineChart,
   Line,
+  Grid,
+  BarXAxis,
   XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-} from 'recharts';
+  ChartTooltip,
+} from '@/components/ui/Chart';
 
 export const ReportsPage: React.FC = () => {
   const { hospital, departments, doctors } = useHospitalStore();
@@ -285,67 +284,39 @@ export const ReportsPage: React.FC = () => {
         {/* Footfall Trend */}
         <Card padding="md" className="space-y-4">
           <div>
-            <div className="text-xs uppercase tracking-wider font-semibold text-ink/70 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 bg-ink inline-block" />
+            <div className="eyebrow flex items-center gap-1.5">
               <span>PATIENT VOLUME</span>
             </div>
             <h3 className="text-base font-medium text-ink mt-0.5">Footfall by Day of Week</h3>
           </div>
 
           <div className="h-64" aria-label="Footfall chart comparing prebooked and walk-in patient volume">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={footfallTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <XAxis dataKey="day" stroke="var(--color-text-muted)" fontSize={11} tickLine={false} />
-                <YAxis stroke="var(--color-text-muted)" fontSize={11} tickLine={false} axisLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'var(--color-base)',
-                    borderColor: 'var(--color-ink)',
-                    borderRadius: 'var(--radius-card)',
-                    fontSize: '12px',
-                  }}
-                />
-                <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: '11px', paddingBottom: '10px' }} />
-                <Bar name="Pre-booked" dataKey="prebooked" fill="var(--color-ink)" radius={[4, 4, 0, 0]} />
-                <Bar name="Walk-in" dataKey="walkin" fill="var(--color-accent)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <BarChart margin={{ top: 8, right: 8, bottom: 40, left: 8 }} data={footfallTrendData} xDataKey="day">
+              <Grid horizontal />
+              <Bar dataKey="prebooked" fill="var(--chart-1)" lineCap="round" name="Pre-booked" />
+              <Bar dataKey="walkin" fill="var(--chart-3)" lineCap="round" name="Walk-in" />
+              <BarXAxis />
+              <ChartTooltip />
+            </BarChart>
           </div>
         </Card>
 
         {/* Average Wait by Hour */}
         <Card padding="md" className="space-y-4">
           <div>
-            <div className="text-xs uppercase tracking-wider font-semibold text-ink/70 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 bg-ink inline-block" />
+            <div className="eyebrow flex items-center gap-1.5">
               <span>QUEUE DELAYS</span>
             </div>
             <h3 className="text-base font-medium text-ink mt-0.5">Average Waiting Duration by Hour</h3>
           </div>
 
           <div className="h-64" aria-label="Average waiting duration line chart by hour">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={waitTimeHourlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <XAxis dataKey="hour" stroke="var(--color-text-muted)" fontSize={11} tickLine={false} />
-                <YAxis stroke="var(--color-text-muted)" fontSize={11} tickLine={false} axisLine={false} unit="m" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'var(--color-base)',
-                    borderColor: 'var(--color-ink)',
-                    borderRadius: 'var(--radius-card)',
-                    fontSize: '12px',
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  name="Avg Wait (Minutes)"
-                  dataKey="avgWait"
-                  stroke="var(--color-ink)"
-                  strokeWidth={2.5}
-                  dot={{ fill: 'var(--color-accent)', stroke: 'var(--color-ink)', r: 4 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <LineChart margin={{ top: 8, right: 8, bottom: 40, left: 8 }} data={waitTimeHourlyData}>
+              <Grid horizontal vertical />
+              <Line dataKey="avgWait" strokeWidth={2} name="Avg Wait (Minutes)" />
+              <XAxis />
+              <ChartTooltip />
+            </LineChart>
           </div>
         </Card>
       </div>
@@ -354,8 +325,7 @@ export const ReportsPage: React.FC = () => {
       <Card padding="md" className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-ink/10 pb-3">
           <div>
-            <div className="text-xs uppercase tracking-wider font-semibold text-ink/70 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 bg-ink inline-block" />
+            <div className="eyebrow flex items-center gap-1.5">
               <span>CONGESTION MATRIX</span>
             </div>
             <h3 className="text-base font-medium text-ink mt-0.5">Peak-Hour OPD Heatmap</h3>
@@ -424,8 +394,7 @@ export const ReportsPage: React.FC = () => {
         {/* Doctor Utilization */}
         <Card padding="md" className="space-y-4">
           <div>
-            <div className="text-xs uppercase tracking-wider font-semibold text-ink/70 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 bg-ink inline-block" />
+            <div className="eyebrow flex items-center gap-1.5">
               <span>CLINICAL OCCUPANCY</span>
             </div>
             <h3 className="text-base font-medium text-ink mt-0.5">Specialist Utilization Rates</h3>
@@ -452,8 +421,7 @@ export const ReportsPage: React.FC = () => {
         {/* Patient Satisfaction */}
         <Card padding="md" className="space-y-4">
           <div>
-            <div className="text-xs uppercase tracking-wider font-semibold text-ink/70 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 bg-ink inline-block" />
+            <div className="eyebrow flex items-center gap-1.5">
               <span>PATIENT REVIEWS</span>
             </div>
             <h3 className="text-base font-medium text-ink mt-0.5">Post-Visit Review Ratings</h3>

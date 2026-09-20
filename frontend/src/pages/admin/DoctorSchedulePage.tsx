@@ -258,7 +258,7 @@ export const DoctorSchedulePage: React.FC = () => {
           <Card padding="md">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-ink/10 pb-4 mb-4">
               <div className="flex items-center gap-3">
-                <span className="text-xs font-semibold uppercase tracking-wider text-ink/70">
+                <span className="eyebrow">
                   Slot Duration:
                 </span>
                 <div className="w-32">

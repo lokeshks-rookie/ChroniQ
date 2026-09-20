@@ -6,6 +6,7 @@ import {
   Trash2,
   Calendar,
   AlertTriangle,
+  User,
 } from 'lucide-react';
 import { usePatientStore } from '@/store/patientStore';
 import { useUiStore } from '@/store/uiStore';
@@ -30,16 +31,16 @@ const RELATION_LABELS: Record<FamilyMember['relation'], string> = {
   other: 'Other',
 };
 
-const RELATION_ICONS: Record<FamilyMember['relation'], string> = {
-  spouse: '💑',
-  son: '👦',
-  daughter: '👧',
-  father: '👨',
-  mother: '👩',
-  brother: '🧑',
-  sister: '👩',
-  grandparent: '👴',
-  other: '👤',
+const RELATION_ICONS: Record<FamilyMember['relation'], React.ReactNode> = {
+  spouse: <Users className="w-5 h-5 text-ink/60" />,
+  son: <User className="w-5 h-5 text-ink/60" />,
+  daughter: <User className="w-5 h-5 text-ink/60" />,
+  father: <User className="w-5 h-5 text-ink/60" />,
+  mother: <User className="w-5 h-5 text-ink/60" />,
+  brother: <User className="w-5 h-5 text-ink/60" />,
+  sister: <User className="w-5 h-5 text-ink/60" />,
+  grandparent: <User className="w-5 h-5 text-ink/60" />,
+  other: <User className="w-5 h-5 text-ink/60" />,
 };
 
 interface MemberFormData {
@@ -222,9 +223,8 @@ export const FamilyPage: React.FC = () => {
                 key={member.id}
                 className="flex items-center gap-4 p-4 bg-base border border-ink/10 rounded-card hover:shadow-sm transition-shadow"
               >
-                {/* Avatar-like icon */}
-                <div className="w-12 h-12 rounded-full bg-cream/20 flex items-center justify-center shrink-0 text-xl">
-                  {RELATION_ICONS[member.relation] || '👤'}
+                <div className="w-12 h-12 rounded-full bg-cream/20 flex items-center justify-center shrink-0">
+                  {RELATION_ICONS[member.relation] || <User className="w-5 h-5 text-ink/60" />}
                 </div>
 
                 {/* Info */}

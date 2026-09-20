@@ -20,7 +20,7 @@ export default function PatientDashboard() {
       {/* ── Welcome Header ── */}
       <div style={{ marginBottom: '32px' }}>
         <h1 style={{ fontSize: '28px', fontWeight: 800, color: 'var(--color-ink)', letterSpacing: '-0.02em', marginBottom: '4px' }}>
-          Hi, {firstName} 👋
+          Hi, {firstName}
         </h1>
         <p style={{ fontSize: '15px', color: 'var(--color-muted)', fontWeight: 500 }}>
           {dateStr}
