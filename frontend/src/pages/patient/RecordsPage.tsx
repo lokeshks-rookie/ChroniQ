@@ -227,11 +227,8 @@ export const RecordsPage: React.FC = () => {
     <div className="space-y-6">
       {/* Page header */}
       <div>
-        <div className="text-xs uppercase tracking-wider font-semibold text-muted flex items-center gap-1.5 mb-2">
-          <span className="w-1.5 h-1.5 bg-ink inline-block shrink-0" />
-          YOUR RECORDS
-        </div>
-        <h1 className="text-2xl sm:text-3xl font-medium text-ink">Visit history & documents</h1>
+        <h1 style={{ fontSize: '30px', fontWeight: 600, color: 'var(--color-ink)', letterSpacing: '-0.02em', marginBottom: '8px' }}>
+Visit history & documents</h1>
         <p className="text-sm text-muted mt-1">
           {allAppointments.length} visits · {documents.length} documents
         </p>

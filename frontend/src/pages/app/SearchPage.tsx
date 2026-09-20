@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Search, SlidersHorizontal, Star, MapPin, X, ChevronDown } from 'lucide-react';
+import { Dropdown } from '@/components/ui/Dropdown';
 import {
   mockDoctors, mockHospitals, filterDoctors, sortDoctors,
   SPECIALTIES, CITIES, ALL_LANGUAGES, AVATAR_GRADIENTS,
@@ -51,7 +52,7 @@ export default function SearchPage() {
         .doctor-card:hover { border-color: rgba(154,110,86,0.25); box-shadow: 0 4px 16px rgba(25,8,1,0.06); }
       `}</style>
 
-      <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--color-ink)', letterSpacing: '-0.02em', marginBottom: '24px' }}>
+      <h1 style={{ fontSize: '30px', fontWeight: 600, color: 'var(--color-ink)', letterSpacing: '-0.02em', marginBottom: '24px' }}>
         Find a Doctor
       </h1>
 
@@ -83,11 +84,16 @@ export default function SearchPage() {
           <SlidersHorizontal size={16} />
           Filters {activeFilterCount > 0 && <span style={{ fontSize: '11px', padding: '1px 6px', borderRadius: '999px', backgroundColor: 'var(--color-accent)', color: 'var(--color-base)', fontWeight: 700 }}>{activeFilterCount}</span>}
         </button>
-        <select className="filter-select" value={sortKey} onChange={(e) => updateParam('sort', e.target.value)}>
-          <option value="earliest">Earliest available</option>
-          <option value="rating">Highest rated</option>
-          <option value="fee_asc">Fee: low → high</option>
-        </select>
+        <Dropdown
+          value={sortKey}
+          onChange={(val) => updateParam('sort', val)}
+          options={[
+            { value: 'earliest', label: 'Earliest available' },
+            { value: 'rating', label: 'Highest rated' },
+            { value: 'fee_asc', label: 'Fee: low → high' },
+          ]}
+          width="w-48"
+        />
       </div>
 
       {/* ── Filter Panel ── */}
@@ -97,32 +103,80 @@ export default function SearchPage() {
           padding: '16px', borderRadius: '12px', border: '1px solid rgba(154,110,86,0.1)',
           marginBottom: '20px', backgroundColor: 'rgba(154,110,86,0.02)',
         }}>
-          <select className="filter-select" value={filters.specialty} onChange={(e) => updateParam('specialty', e.target.value)}>
-            <option value="">All specialties</option>
-            {SPECIALTIES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <select className="filter-select" value={filters.city} onChange={(e) => updateParam('city', e.target.value)}>
-            <option value="">All cities</option>
-            {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select className="filter-select" value={filters.hospital} onChange={(e) => updateParam('hospital', e.target.value)}>
-            <option value="">All hospitals</option>
-            {mockHospitals.map((h) => <option key={h._id} value={h._id}>{h.name}</option>)}
-          </select>
-          <select className="filter-select" value={filters.gender} onChange={(e) => updateParam('gender', e.target.value)}>
-            <option value="">Any gender</option>
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-          </select>
-          <select className="filter-select" value={filters.language} onChange={(e) => updateParam('language', e.target.value)}>
-            <option value="">Any language</option>
-            {ALL_LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
-          </select>
-          <select className="filter-select" value={filters.ratingMin || ''} onChange={(e) => updateParam('ratingMin', e.target.value)}>
-            <option value="">Any rating</option>
-            <option value="4">4+ stars</option>
-            <option value="4.5">4.5+ stars</option>
-          </select>
+          <Dropdown
+            value={filters.specialty}
+            onChange={(val) => updateParam('specialty', val)}
+            placeholder="All specialties"
+            options={[
+              { value: '', label: 'All specialties' },
+              ...SPECIALTIES.map((s) => ({ value: s, label: s })),
+            ]}
+            width="w-56"
+            className="w-full"
+            triggerClassName="w-full justify-between"
+          />
+          <Dropdown
+            value={filters.city}
+            onChange={(val) => updateParam('city', val)}
+            placeholder="All cities"
+            options={[
+              { value: '', label: 'All cities' },
+              ...CITIES.map((c) => ({ value: c, label: c })),
+            ]}
+            width="w-56"
+            className="w-full"
+            triggerClassName="w-full justify-between"
+          />
+          <Dropdown
+            value={filters.hospital}
+            onChange={(val) => updateParam('hospital', val)}
+            placeholder="All hospitals"
+            options={[
+              { value: '', label: 'All hospitals' },
+              ...mockHospitals.map((h) => ({ value: h._id, label: h.name })),
+            ]}
+            width="w-64"
+            className="w-full"
+            triggerClassName="w-full justify-between"
+          />
+          <Dropdown
+            value={filters.gender}
+            onChange={(val) => updateParam('gender', val)}
+            placeholder="Any gender"
+            options={[
+              { value: '', label: 'Any gender' },
+              { value: 'male', label: 'Male' },
+              { value: 'female', label: 'Female' },
+            ]}
+            width="w-48"
+            className="w-full"
+            triggerClassName="w-full justify-between"
+          />
+          <Dropdown
+            value={filters.language}
+            onChange={(val) => updateParam('language', val)}
+            placeholder="Any language"
+            options={[
+              { value: '', label: 'Any language' },
+              ...ALL_LANGUAGES.map((l) => ({ value: l, label: l })),
+            ]}
+            width="w-52"
+            className="w-full"
+            triggerClassName="w-full justify-between"
+          />
+          <Dropdown
+            value={filters.ratingMin ? String(filters.ratingMin) : ''}
+            onChange={(val) => updateParam('ratingMin', val)}
+            placeholder="Any rating"
+            options={[
+              { value: '', label: 'Any rating' },
+              { value: '4', label: '4+ stars' },
+              { value: '4.5', label: '4.5+ stars' },
+            ]}
+            width="w-48"
+            className="w-full"
+            triggerClassName="w-full justify-between"
+          />
           {activeFilterCount > 0 && (
             <button onClick={() => {
               const next = new URLSearchParams();

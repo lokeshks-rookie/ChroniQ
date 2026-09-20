@@ -31,7 +31,15 @@ export const StatCard: React.FC<StatCardProps> = ({
   const isDark = variant === 'ink';
 
   return (
-    <Card variant={variant} padding="md" className="flex flex-col justify-between">
+    <Card
+      tilt
+      tiltLimit={18}
+      scale={1.05}
+      perspective={900}
+      variant={variant}
+      padding="md"
+      className="flex flex-col justify-between cursor-pointer"
+    >
       <div>
         <div className="flex items-center justify-between gap-2 mb-2">
           {eyebrow && (

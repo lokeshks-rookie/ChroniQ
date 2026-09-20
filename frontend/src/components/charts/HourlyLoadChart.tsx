@@ -22,8 +22,8 @@ export const HourlyLoadChart: React.FC<HourlyLoadChartProps> = ({ data }) => {
     <div className="w-full h-64" aria-label="Hourly load chart showing appointments scheduled and patients waiting by hour">
       <BarChart margin={{ top: 8, right: 8, bottom: 40, left: 8 }} data={data} xDataKey="hour">
         <Grid horizontal />
-        <Bar dataKey="appointments" fill="var(--chart-1)" lineCap="round" name="Appointments" />
-        <Bar dataKey="waiting" fill="var(--chart-3)" lineCap="round" name="Patients waiting" />
+        <Bar dataKey="appointments" fill="var(--color-ink)" lineCap="round" name="Appointments" />
+        <Bar dataKey="waiting" fill="var(--color-accent)" lineCap="round" name="Patients waiting" />
         <BarXAxis />
         <ChartTooltip />
       </BarChart>

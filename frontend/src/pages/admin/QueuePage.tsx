@@ -183,7 +183,7 @@ export const QueuePage: React.FC = () => {
       </div>
 
       {/* Main Multi-Doctor Columns Grid (Horizontal Scroll) */}
-      <div className="overflow-x-auto pb-6 -mx-4 md:-mx-8 px-4 md:px-8">
+      <div className="overflow-x-auto overflow-y-hidden pb-6 -mx-4 md:-mx-8 px-4 md:px-8">
         <div className="inline-flex gap-5 min-w-full">
           {filteredDoctors.map((doc) => {
             const dept = departments.find((d) => d.id === doc.department_id)!;

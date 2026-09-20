@@ -120,7 +120,7 @@ export function DataTable<T extends Record<string, any>>({
   return (
     <div className="w-full flex flex-col border border-ink/10 rounded-card bg-base overflow-hidden">
       {/* Scrollable table container */}
-      <div className="overflow-x-auto w-full max-w-full">
+      <div className="overflow-x-auto overflow-y-hidden w-full max-w-full">
         <table className="w-full text-left border-collapse text-sm">
           <thead
             className={`${

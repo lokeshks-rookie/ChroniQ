@@ -15,10 +15,9 @@ import {
   Copy,
   Check,
   User,
-  PanelLeftClose,
-  PanelLeft,
 } from 'lucide-react';
 import { getNavConfigForRole } from './navConfig';
+import { DesktopSidebar } from './Sidebar';
 import { useAuthStore } from '@/store/authStore';
 import { useHospitalStore } from '@/store/hospitalStore';
 import { useUiStore } from '@/store/uiStore';
@@ -27,6 +26,9 @@ import { ToastContainer } from '@/components/ui/ToastContainer';
 import { LiveIndicator } from '@/components/ui/LiveIndicator';
 import { Avatar } from '@/components/ui/Avatar';
 import { DoctorAvailabilityChip } from '@/components/ui/StatusBadge';
+import { TiltCard } from '@/components/ui/tilt-card';
+import { Dropdown, DropdownOption } from '@/components/ui/Dropdown';
+import { cn } from '@/lib/utils';
 
 export const AdminLayout: React.FC = () => {
   const location = useLocation();
@@ -53,23 +55,6 @@ export const AdminLayout: React.FC = () => {
   const [displayPopoverOpen, setDisplayPopoverOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
-  const [isHoverOpen, setIsHoverOpen] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
-  const isOpen = isSidebarOpen || isHoverOpen;
-
-  const handleToggle = () => {
-    if (isSidebarOpen) setIsHoverOpen(false);
-    setIsSidebarOpen(!isSidebarOpen);
-  };
-
-  const asideStyle = isOpen
-    ? { width: '264px', transition: 'width 400ms ease-out 150ms' }
-    : { width: '64px', transition: 'width 400ms ease-out 150ms' };
-
-  const contentStyle = isOpen
-    ? { opacity: 1, pointerEvents: 'auto', transition: 'opacity 200ms ease-out 500ms' }
-    : { opacity: 0, pointerEvents: 'none', transition: 'opacity 80ms ease-out 100ms' };
 
   const copyToClipboard = (text: string, title: string) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -117,30 +102,10 @@ export const AdminLayout: React.FC = () => {
   const currentNavGroups = getNavConfigForRole(currentRole);
 
   const renderNavContent = () => (
-    <div className="flex flex-col h-full justify-between p-6 text-base select-none">
-      <div className="space-y-6">
-        {/* Brand Header */}
-        <div className="pb-4 border-b border-base/10">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <img
-                src="/logo.png"
-                alt="ChroniQ Logo"
-                className="w-8 h-8 object-contain shrink-0"
-              />
-              <span className="text-2xl font-semibold tracking-tight text-base font-sans">
-                ChroniQ
-              </span>
-            </div>
-            <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded bg-accent text-ink">
-              {currentRole === 'doctor' ? 'Doctor' : currentRole === 'receptionist' ? 'Reception' : 'Admin'}
-            </span>
-          </div>
-          <div className="text-xs text-base/70 mt-1 truncate">{hospital.name}</div>
-        </div>
-
+    <div className="flex flex-col flex-1 min-h-0 text-base select-none" style={{ gap: 0 }}>
+      <div className="space-y-6 flex-1">
         {/* Nav Groups */}
-        <nav className="space-y-6 overflow-y-auto max-h-[calc(100vh-280px)] pr-1" style={{ scrollbarWidth: 'none' }}>
+        <nav className="space-y-5 flex-1 pr-1">
           {currentNavGroups.map((group) => {
             // Filter items by role capability
             const visibleItems = group.items.filter((item) => hasCapability(item.capability));
@@ -338,9 +303,8 @@ export const AdminLayout: React.FC = () => {
         </nav>
       </div>
 
-      <div className="space-y-3 pt-4 border-t border-base/10">
-        {/* Doctor Card at bottom of sidebar (Section 4.4 requirement 3) */}
-        {currentRole === 'doctor' && currentDoctor && (
+      {currentRole === 'doctor' && currentDoctor && (
+        <div className="pt-4 border-t border-base/10">
           <div className="p-3 rounded-card bg-base/5 border border-base/10 space-y-2">
             <div className="flex items-center gap-2.5">
               <Avatar name={currentDoctor.name} photoUrl={currentDoctor.photo_url} size="sm" />
@@ -361,67 +325,32 @@ export const AdminLayout: React.FC = () => {
               </div>
             </div>
           </div>
-        )}
-
-        {/* Hospital status footnote */}
-        <div className="text-xs text-base/60 space-y-1">
-          <div className="flex items-center justify-between">
-            <span>OPD Timings</span>
-            <span className="font-mono text-base/90">{hospital.timings}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Simulation</span>
-            <span className={isSimulationPaused ? 'text-accent' : 'text-success'}>
-              {isSimulationPaused ? 'Paused' : 'Active (1s)'}
-            </span>
-          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-base text-ink flex flex-col antialiased">
+    <div className="h-screen overflow-hidden bg-base text-ink flex antialiased">
       {/* Accessible screen reader announcement region */}
       <div aria-live="polite" aria-atomic="true" className="sr-only">
         {liveAnnouncement}
       </div>
 
-      <div className="flex flex-1 min-h-screen">
-        {/* Desktop Sidebar (ink, 264px) */}
-        <aside
-          onMouseLeave={() => setIsHoverOpen(false)}
-          onMouseMove={(e) => {
-            if (!isOpen) {
-              const rect = e.currentTarget.getBoundingClientRect();
-              if (e.clientY - rect.top >= 47) {
-                setIsHoverOpen(true);
-              }
-            }
-          }}
-          style={asideStyle}
-          className="hidden lg:flex bg-ink text-base shrink-0 flex-col border-r border-ink/20 sticky top-0 h-screen z-50 relative"
+        {/* Desktop Sidebar — uses shared DesktopSidebar shell */}
+        <DesktopSidebar
+          title="CHRONIQ"
+          headerBadge={
+            <span
+              className="text-[11px] uppercase font-semibold tracking-wider shrink-0"
+              style={{ color: 'var(--color-ink-light, rgba(253, 249, 240, 0.75))' }}
+            >
+              {currentRole === 'doctor' ? 'Doctor' : currentRole === 'receptionist' ? 'Reception' : 'Admin'}
+            </span>
+          }
         >
-          <button
-            onClick={handleToggle}
-            className="absolute top-3 left-full -translate-x-1/2 z-50 flex items-center justify-center w-7 h-7 rounded-full shadow-sm cursor-pointer transition-colors duration-200 ease-out"
-            style={{
-              backgroundColor: 'var(--color-base)',
-              color: 'var(--color-ink)',
-              border: '1px solid rgba(154,110,86,0.15)',
-            }}
-            aria-label={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-            title={isSidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-          >
-            {isSidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeft size={16} />}
-          </button>
-
-          <div style={contentStyle as React.CSSProperties} className="w-full h-full overflow-y-auto overflow-x-hidden">
-            <div className="flex flex-col min-h-full w-[264px] min-w-[264px]">
-              {renderNavContent()}
-            </div>
-          </div>
-        </aside>
+          {renderNavContent()}
+        </DesktopSidebar>
 
         {/* Mobile / Tablet Drawer */}
         {mobileNavOpen && (
@@ -447,9 +376,9 @@ export const AdminLayout: React.FC = () => {
         )}
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
           {/* Topbar (base, hairline bottom border) */}
-          <header className="h-16 bg-base border-b border-ink/10 sticky top-0 z-40 px-4 md:px-8 flex items-center justify-between gap-4">
+          <header className="h-16 bg-base border-b border-ink/10 flex-shrink-0 z-40 px-4 md:px-8 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -462,12 +391,9 @@ export const AdminLayout: React.FC = () => {
 
               <div className="lg:hidden flex items-center gap-2">
                 <img src="/logo.png" alt="ChroniQ Logo" className="w-6 h-6 object-contain" />
-                <span className="font-semibold text-base tracking-tight text-ink">ChroniQ</span>
               </div>
 
               <div className="hidden sm:flex items-center gap-3">
-                <LiveIndicator label="Live system" />
-                <span className="text-ink/20">•</span>
                 <div className="flex items-center gap-1.5 text-xs text-ink/75 font-mono">
                   <Clock className="w-3.5 h-3.5 text-ink/60" />
                   <span>{liveClock}</span>
@@ -533,9 +459,12 @@ export const AdminLayout: React.FC = () => {
                           </div>
                         ) : (
                           unreadAlerts.map((alert) => (
-                            <div
+                            <TiltCard
                               key={alert.id}
-                              className="p-3 rounded-lg border border-ink/10 bg-base space-y-1.5 text-xs"
+                              tiltLimit={8}
+                              scale={1.02}
+                              perspective={800}
+                              className="p-3 rounded-lg border border-ink/10 bg-base space-y-1.5 text-xs shadow-xs"
                             >
                               <div className="flex items-center justify-between">
                                 <span className="font-semibold text-ink">{alert.title}</span>
@@ -551,7 +480,7 @@ export const AdminLayout: React.FC = () => {
                                   {alert.actionLabel || 'View'} →
                                 </a>
                               )}
-                            </div>
+                            </TiltCard>
                           ))
                         )}
                       </div>
@@ -561,158 +490,127 @@ export const AdminLayout: React.FC = () => {
               </div>
 
               {/* User / Demo Role Switcher */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setRoleMenuOpen(!roleMenuOpen)}
-                  className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full border border-ink/15 hover:bg-ink/5 transition-colors cursor-pointer text-xs"
-                >
-                  <div className="w-6 h-6 rounded-full bg-cream text-ink flex items-center justify-center font-bold text-[10px]">
-                    {currentRole === 'doctor' ? 'DR' : currentRole === 'hospital_admin' ? 'HA' : 'RC'}
-                  </div>
-                  <div className="hidden sm:block text-left">
-                    <div className="font-medium text-ink leading-tight">
-                      {currentRole === 'doctor'
-                        ? (currentDoctor?.name || 'Doctor')
-                        : currentRole === 'hospital_admin'
-                        ? 'Admin'
-                        : 'Reception'}
-                    </div>
-                  </div>
-                  <ChevronDown className="w-3.5 h-3.5 text-ink/60" />
-                </button>
-
-                {roleMenuOpen && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-40"
-                      onClick={() => setRoleMenuOpen(false)}
-                    />
-                    <div className="absolute right-0 mt-2 w-64 bg-base border border-ink/15 rounded-card shadow-2xl p-2 z-50 space-y-1 text-xs">
-                      <div className="px-3 py-2 border-b border-ink/10">
-                        <div className="font-semibold text-ink">Demo Role Switcher</div>
-                        <div className="text-[11px] text-ink/60">Test role-scoped navigation</div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRole('hospital_admin');
-                          setRoleMenuOpen(false);
-                          navigate('/admin');
-                        }}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left cursor-pointer ${
-                          currentRole === 'hospital_admin' ? 'bg-ink/5 font-semibold text-ink' : 'text-ink/80 hover:bg-ink/5'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <UserCheck className="w-3.5 h-3.5 text-ink" />
-                          <span>Hospital Admin</span>
-                        </div>
-                        {currentRole === 'hospital_admin' && <span className="text-[10px] text-accent font-bold">ACTIVE</span>}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRole('receptionist');
-                          setRoleMenuOpen(false);
-                          navigate('/admin');
-                        }}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left cursor-pointer ${
-                          currentRole === 'receptionist' ? 'bg-ink/5 font-semibold text-ink' : 'text-ink/80 hover:bg-ink/5'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <UserCheck className="w-3.5 h-3.5 text-ink" />
-                          <span>Receptionist</span>
-                        </div>
-                        {currentRole === 'receptionist' && <span className="text-[10px] text-accent font-bold">ACTIVE</span>}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRole('doctor', currentDoctorId || 'doc_card_2');
-                          setRoleMenuOpen(false);
-                          navigate('/doctor');
-                        }}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left cursor-pointer ${
-                          currentRole === 'doctor' ? 'bg-ink/5 font-semibold text-ink' : 'text-ink/80 hover:bg-ink/5'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Stethoscope className="w-3.5 h-3.5 text-ink" />
-                          <span>Doctor (Specialist View)</span>
-                        </div>
-                        {currentRole === 'doctor' && <span className="text-[10px] text-accent font-bold">ACTIVE</span>}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRole('patient');
-                          setRoleMenuOpen(false);
-                          navigate('/app/profile');
-                        }}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-left cursor-pointer ${
-                          currentRole === 'patient' ? 'bg-ink/5 font-semibold text-ink' : 'text-ink/80 hover:bg-ink/5'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <User className="w-3.5 h-3.5 text-ink" />
-                          <span>Patient (Patient Portal)</span>
-                        </div>
-                        {currentRole === 'patient' && <span className="text-[10px] text-accent font-bold">ACTIVE</span>}
-                      </button>
-
-                      {/* When in Doctor mode, allow picking doctor */}
-                      {currentRole === 'doctor' && (
-                        <div className="pt-2 px-2 pb-1 border-t border-ink/10 space-y-1">
-                          <div className="text-[10px] uppercase font-bold text-ink/60">Active Specialist</div>
-                          <select
-                            value={currentDoctorId || 'doc_card_2'}
-                            onChange={(e) => {
-                              setDoctorId(e.target.value);
-                              setRole('doctor', e.target.value);
-                            }}
-                            className="w-full text-xs p-1.5 rounded border border-ink/20 bg-base text-ink font-medium"
-                          >
-                            {doctors.map((d) => (
-                              <option key={d.id} value={d.id}>
-                                {d.name} ({departments.find((dep) => dep.id === d.department_id)?.token_prefix})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-
-                      <div className="border-t border-ink/10 pt-1 mt-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            resetDemoData();
-                            setRoleMenuOpen(false);
-                          }}
-                          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-danger hover:bg-danger/10 cursor-pointer font-medium"
-                        >
-                          <RotateCcw className="w-3.5 h-3.5" />
-                          <span>Reset demo data</span>
-                        </button>
-                      </div>
-                    </div>
-                  </>
+              <div className="flex items-center gap-2">
+                {currentRole === 'doctor' && (
+                  <Dropdown
+                    value={currentDoctorId || 'doc_card_2'}
+                    onChange={(val) => {
+                      setDoctorId(val);
+                      setRole('doctor', val);
+                    }}
+                    options={doctors.map((d) => ({
+                      value: d.id,
+                      label: d.name,
+                      sublabel: departments.find((dep) => dep.id === d.department_id)?.name || 'General',
+                    }))}
+                    width="w-64"
+                    align="right"
+                    triggerClassName="text-xs h-8"
+                  />
                 )}
+
+                <Dropdown
+                  value={currentRole}
+                  align="right"
+                  width="w-64"
+                  options={[
+                    {
+                      value: 'hospital_admin',
+                      label: 'Hospital Admin',
+                      sublabel: 'Operations & Management',
+                      icon: <UserCheck className="w-3.5 h-3.5" />,
+                      onClick: () => {
+                        setRole('hospital_admin');
+                        navigate('/admin');
+                      },
+                    },
+                    {
+                      value: 'receptionist',
+                      label: 'Receptionist',
+                      sublabel: 'Desk & Check-in',
+                      icon: <UserCheck className="w-3.5 h-3.5" />,
+                      onClick: () => {
+                        setRole('receptionist');
+                        navigate('/admin');
+                      },
+                    },
+                    {
+                      value: 'doctor',
+                      label: 'Doctor (Specialist)',
+                      sublabel: currentDoctor?.name || 'Specialist Queue',
+                      icon: <Stethoscope className="w-3.5 h-3.5" />,
+                      onClick: () => {
+                        setRole('doctor', currentDoctorId || 'doc_card_2');
+                        navigate('/doctor');
+                      },
+                    },
+                    {
+                      value: 'patient',
+                      label: 'Patient (Portal)',
+                      sublabel: 'Consumer Experience',
+                      icon: <User className="w-3.5 h-3.5" />,
+                      onClick: () => {
+                        setRole('patient');
+                        navigate('/app/profile');
+                      },
+                    },
+                    {
+                      value: 'reset',
+                      label: 'Reset demo data',
+                      icon: <RotateCcw className="w-3.5 h-3.5" />,
+                      destructive: true,
+                      divider: true,
+                      onClick: () => {
+                        resetDemoData();
+                      },
+                    },
+                  ]}
+                  renderTrigger={({ toggle, isOpen, ref }) => (
+                    <button
+                      ref={ref}
+                      type="button"
+                      onClick={toggle}
+                      className={cn(
+                        'h-8 px-2.5 rounded-full text-xs font-medium inline-flex items-center gap-2 transition-all duration-150 cursor-pointer select-none',
+                        'bg-base text-ink border border-ink/15 hover:border-accent/40 hover:bg-cream/10',
+                        isOpen && 'border-accent/50 bg-cream/15 ring-2 ring-accent/20',
+                        'focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-accent/30'
+                      )}
+                    >
+                      <div className="w-5 h-5 rounded-full bg-cream text-ink flex items-center justify-center font-bold text-[9px] shrink-0">
+                        {currentRole === 'doctor' ? 'DR' : currentRole === 'hospital_admin' ? 'HA' : 'RC'}
+                      </div>
+                      <div className="hidden sm:block text-left">
+                        <div className="font-medium truncate max-w-[120px] leading-tight">
+                          {currentRole === 'doctor'
+                            ? (currentDoctor?.name || 'Doctor')
+                            : currentRole === 'hospital_admin'
+                            ? 'Admin'
+                            : 'Reception'}
+                        </div>
+                      </div>
+                      <ChevronDown
+                        size={14}
+                        strokeWidth={2}
+                        className={cn(
+                          'text-muted transition-transform duration-200',
+                          isOpen && 'rotate-180 text-accent'
+                        )}
+                      />
+                    </button>
+                  )}
+                />
               </div>
             </div>
           </header>
 
-          {/* Page Body Viewport */}
-          <main className="flex-1 p-4 md:p-8 max-w-[1440px] w-full mx-auto">
-            <Outlet />
+          {/* Page Body Viewport with independent scroll */}
+          <main className="flex-1 min-h-0 overflow-y-auto p-4 md:p-8">
+            <div className="max-w-[1440px] w-full mx-auto">
+              <Outlet />
+            </div>
           </main>
         </div>
-      </div>
 
       {/* Global Floating Toast Stack */}
       <ToastContainer />

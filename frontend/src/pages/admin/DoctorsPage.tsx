@@ -348,13 +348,13 @@ export const DoctorsPage: React.FC = () => {
               key={dept.id}
               type="button"
               onClick={() => setSelectedDept(dept.id)}
-              className={`px-3 py-1.5 rounded-full font-medium cursor-pointer transition-colors ${
+              className={`px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer whitespace-nowrap shrink-0 transition-colors ${
                 selectedDept === dept.id
                   ? 'bg-accent text-ink font-semibold'
                   : 'border border-ink/20 text-ink hover:border-ink/40'
               }`}
             >
-              {dept.token_prefix}
+              {dept.name}
             </button>
           ))}
           <div className="w-px h-4 bg-ink/15 mx-1" />

@@ -12,6 +12,7 @@ import { usePatientStore } from '@/store/patientStore';
 import { useUiStore } from '@/store/uiStore';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
+import { Dropdown } from '@/components/ui/Dropdown';
 import { canRemoveFamilyMember } from '@/lib/patient';
 import type { FamilyMember } from '@/types';
 
@@ -175,11 +176,7 @@ export const FamilyPage: React.FC = () => {
       {/* Page header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="text-xs uppercase tracking-wider font-semibold text-muted flex items-center gap-1.5 mb-2">
-            <span className="w-1.5 h-1.5 bg-ink inline-block shrink-0" />
-            FAMILY
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-medium text-ink">Family members</h1>
+          <h1 style={{ fontSize: '30px', fontWeight: 600, color: 'var(--color-ink)', letterSpacing: '-0.02em', marginBottom: '8px' }}>Family members</h1>
           <p className="text-sm text-muted mt-1">
             {myMembers.length} of 6 members · Book appointments for your dependents
           </p>
@@ -322,17 +319,20 @@ export const FamilyPage: React.FC = () => {
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted uppercase tracking-wider">Gender</label>
-              <select
+              <Dropdown
                 value={formData.gender}
-                onChange={(e) => setFormData((f) => ({ ...f, gender: e.target.value }))}
-                className="w-full h-12 px-4 bg-base border border-ink/15 rounded-card text-sm text-ink
-                           focus:border-accent focus:ring-1 focus:ring-accent/30 outline-none transition-colors cursor-pointer appearance-none"
-              >
-                <option value="">Optional</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
-              </select>
+                onChange={(val) => setFormData((f) => ({ ...f, gender: val as any }))}
+                placeholder="Optional"
+                options={[
+                  { value: '', label: 'Optional' },
+                  { value: 'male', label: 'Male' },
+                  { value: 'female', label: 'Female' },
+                  { value: 'other', label: 'Other' },
+                ]}
+                width="w-full"
+                className="w-full"
+                triggerClassName="w-full justify-between h-12 px-4 rounded-card"
+              />
             </div>
           </div>
 

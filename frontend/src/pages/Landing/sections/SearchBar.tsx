@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, MapPin, Stethoscope, Building2 } from 'lucide-react';
+import { Dropdown } from '@/components/ui/Dropdown';
 import { SPECIALTIES, CITIES } from '@/data/mockData';
 
 export default function SearchBar() {
@@ -110,22 +111,19 @@ export default function SearchBar() {
                 >
                   Specialty
                 </label>
-                <select
+                <Dropdown
                   id="search-specialty"
                   value={specialty}
-                  onChange={(e) => setSpecialty(e.target.value)}
-                  style={{
-                    ...inputBase,
-                    width: '100%',
-                    cursor: 'pointer',
-                    appearance: 'none',
-                  }}
-                >
-                  <option value="">Any specialty</option>
-                  {SPECIALTIES.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
+                  onChange={(val) => setSpecialty(val)}
+                  placeholder="Any specialty"
+                  options={[
+                    { value: '', label: 'Any specialty' },
+                    ...SPECIALTIES.map((s) => ({ value: s, label: s })),
+                  ]}
+                  width="w-56"
+                  className="w-full"
+                  triggerClassName="w-full justify-between"
+                />
               </div>
             </div>
 
@@ -208,22 +206,19 @@ export default function SearchBar() {
                 >
                   City
                 </label>
-                <select
+                <Dropdown
                   id="search-city"
                   value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  style={{
-                    ...inputBase,
-                    width: '100%',
-                    cursor: 'pointer',
-                    appearance: 'none',
-                  }}
-                >
-                  <option value="">Any city</option>
-                  {CITIES.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                  onChange={(val) => setCity(val)}
+                  placeholder="Any city"
+                  options={[
+                    { value: '', label: 'Any city' },
+                    ...CITIES.map((c) => ({ value: c, label: c })),
+                  ]}
+                  width="w-56"
+                  className="w-full"
+                  triggerClassName="w-full justify-between"
+                />
               </div>
             </div>
 

@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import { Card } from '@/components/ui/Card';
+import { TiltCard } from '@/components/ui/tilt-card';
+import DotCard from '@/components/ui/moving-dot-card';
 import { Button } from '@/components/ui/Button';
 import { DoctorAvailabilityChip } from '@/components/ui/StatusBadge';
 import { Avatar } from '@/components/ui/Avatar';
@@ -204,33 +206,39 @@ export const DashboardPage: React.FC = () => {
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
           {departmentServingData.map(({ department, activeToken, waitingCount, longestWait }) => (
-            <Link
+            <TiltCard
               key={department.id}
-              to={`/admin/queue?dept=${department.id}`}
-              className="p-4 rounded-card bg-base/5 border border-base/10 hover:border-accent/60 hover:bg-base/10 transition-all text-left flex flex-col justify-between group"
+              tiltLimit={10}
+              scale={1.03}
+              className="rounded-card bg-base/5 border border-base/10 hover:border-accent/60 transition-all text-left group"
             >
-              <div>
-                <div className="eyebrow">
-                  {department.name}
-                </div>
-                <div className="text-2xl md:text-3xl font-extrabold font-mono tracking-wider text-base mt-2 tabular-nums">
-                  {activeToken}
-                </div>
-              </div>
-
-              <div className="mt-4 pt-2 border-t border-base/10 text-[11px] text-base/60 space-y-1">
-                <div className="flex justify-between">
-                  <span>Waiting:</span>
-                  <span className="font-bold text-accent">{waitingCount}</span>
-                </div>
-                {waitingCount > 0 && (
-                  <div className="flex justify-between">
-                    <span>Longest:</span>
-                    <span>{longestWait}m</span>
+              <Link
+                to={`/admin/queue?dept=${department.id}`}
+                className="p-4 h-full flex flex-col justify-between"
+              >
+                <div>
+                  <div className="eyebrow">
+                    {department.name}
                   </div>
-                )}
-              </div>
-            </Link>
+                  <div className="text-2xl md:text-3xl font-extrabold font-mono tracking-wider text-base mt-2 tabular-nums">
+                    {activeToken}
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-2 border-t border-base/10 text-[11px] text-base/60 space-y-1">
+                  <div className="flex justify-between">
+                    <span>Waiting:</span>
+                    <span className="font-bold text-accent">{waitingCount}</span>
+                  </div>
+                  {waitingCount > 0 && (
+                    <div className="flex justify-between">
+                      <span>Longest:</span>
+                      <span>{longestWait}m</span>
+                    </div>
+                  )}
+                </div>
+              </Link>
+            </TiltCard>
           ))}
         </div>
       </section>
@@ -249,11 +257,11 @@ export const DashboardPage: React.FC = () => {
               </div>
 
               {/* Department filter pills */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
                 <button
                   type="button"
                   onClick={() => setDeptFilter('all')}
-                  className={`badge ${deptFilter === 'all' ? 'active' : ''}`}
+                  className={`badge text-[11px] whitespace-nowrap shrink-0 ${deptFilter === 'all' ? 'active' : ''}`}
                 >
                   All
                 </button>
@@ -262,9 +270,9 @@ export const DashboardPage: React.FC = () => {
                     key={dep.id}
                     type="button"
                     onClick={() => setDeptFilter(dep.id)}
-                    className={`badge ${deptFilter === dep.id ? 'active' : ''}`}
+                    className={`badge text-[11px] whitespace-nowrap shrink-0 ${deptFilter === dep.id ? 'active' : ''}`}
                   >
-                    {dep.token_prefix}
+                    {dep.name}
                   </button>
                 ))}
               </div>
@@ -288,8 +296,10 @@ export const DashboardPage: React.FC = () => {
                 else if (active?.status === 'in_consultation') availability = 'in_consultation';
 
                 return (
-                  <div
+                  <TiltCard
                     key={doc.id}
+                    tiltLimit={6}
+                    scale={1.015}
                     className="p-3.5 rounded-card border border-ink/10 bg-base hover:border-ink/30 transition-colors flex items-center justify-between gap-3"
                   >
                     <div className="flex items-center gap-3 min-w-0">
@@ -312,7 +322,7 @@ export const DashboardPage: React.FC = () => {
                       </div>
                       <div className="text-[11px] text-ink/70 mt-0.5">{waiting} in queue</div>
                     </div>
-                  </div>
+                  </TiltCard>
                 );
               })}
             </div>
@@ -353,14 +363,14 @@ export const DashboardPage: React.FC = () => {
               ) : (
                 activeAlerts.map((alert) => {
                   return (
-                    <div
+                    <DotCard
                       key={alert.id}
-                      className="p-3.5 rounded-card border border-ink/10 bg-base space-y-2 text-xs relative"
+                      className="p-3.5 space-y-2 text-xs relative"
                     >
                       <button
                         type="button"
                         onClick={() => dismissAlert(alert.id)}
-                        className="absolute top-2.5 right-2.5 text-ink/40 hover:text-ink cursor-pointer"
+                        className="absolute top-2.5 right-2.5 text-ink/40 hover:text-ink cursor-pointer z-20"
                         aria-label="Dismiss alert"
                       >
                         <X className="w-3.5 h-3.5" />
@@ -394,7 +404,7 @@ export const DashboardPage: React.FC = () => {
                           </Link>
                         </div>
                       )}
-                    </div>
+                    </DotCard>
                   );
                 })
               )}

@@ -16,6 +16,7 @@ import { usePatientStore } from '@/store/patientStore';
 import { useUiStore } from '@/store/uiStore';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
+import { Dropdown } from '@/components/ui/Dropdown';
 import { OtpModal } from '@/components/patient/OtpModal';
 import { passwordStrength } from '@/lib/patient';
 import * as patientApi from '@/services/patientApi';
@@ -235,10 +236,6 @@ export const ProfilePage: React.FC = () => {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <div className="text-xs uppercase tracking-wider font-semibold text-muted flex items-center gap-1.5 mb-2">
-            <span className="w-1.5 h-1.5 bg-ink inline-block shrink-0" />
-            PROFILE
-          </div>
           <h1 className="text-2xl sm:text-3xl font-medium text-ink">Your profile</h1>
         </div>
 
@@ -444,32 +441,37 @@ export const ProfilePage: React.FC = () => {
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted uppercase tracking-wider">Gender</label>
-              <select
+              <Dropdown
                 value={editGender}
-                onChange={(e) => setEditGender(e.target.value)}
-                className="w-full h-12 px-4 bg-base border border-ink/15 rounded-card text-sm text-ink
-                           focus:border-accent focus:ring-1 focus:ring-accent/30 outline-none transition-colors cursor-pointer appearance-none"
-              >
-                <option value="">Not specified</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
-              </select>
+                onChange={(val) => setEditGender(val)}
+                placeholder="Not specified"
+                options={[
+                  { value: '', label: 'Not specified' },
+                  { value: 'male', label: 'Male' },
+                  { value: 'female', label: 'Female' },
+                  { value: 'other', label: 'Other' },
+                ]}
+                width="w-full"
+                className="w-full"
+                triggerClassName="w-full justify-between h-12 px-4 rounded-card"
+              />
             </div>
           </div>
 
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted uppercase tracking-wider">Preferred language</label>
-            <select
+            <Dropdown
               value={editLanguage}
-              onChange={(e) => setEditLanguage(e.target.value)}
-              className="w-full h-12 px-4 bg-base border border-ink/15 rounded-card text-sm text-ink
-                         focus:border-accent focus:ring-1 focus:ring-accent/30 outline-none transition-colors cursor-pointer appearance-none"
-            >
-              {LANGUAGE_OPTIONS.map((lang) => (
-                <option key={lang.value} value={lang.value}>{lang.label}</option>
-              ))}
-            </select>
+              onChange={(val) => setEditLanguage(val)}
+              placeholder="Select language"
+              options={LANGUAGE_OPTIONS.map((lang) => ({
+                value: lang.value,
+                label: lang.label,
+              }))}
+              width="w-full"
+              className="w-full"
+              triggerClassName="w-full justify-between h-12 px-4 rounded-card"
+            />
           </div>
 
           {/* Contact change section */}

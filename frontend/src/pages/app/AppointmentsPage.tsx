@@ -115,7 +115,7 @@ export default function AppointmentsPage() {
     <div style={{ maxWidth: '960px', paddingBottom: '80px' }}>
       
       <div style={{ marginBottom: '32px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: 800, color: 'var(--color-ink)', letterSpacing: '-0.02em', marginBottom: '8px' }}>
+        <h1 style={{ fontSize: '30px', fontWeight: 600, color: 'var(--color-ink)', letterSpacing: '-0.02em', marginBottom: '8px' }}>
           My Appointments
         </h1>
         <p style={{ fontSize: '15px', color: 'var(--color-muted)', fontWeight: 500 }}>

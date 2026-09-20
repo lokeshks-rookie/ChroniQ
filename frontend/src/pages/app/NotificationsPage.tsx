@@ -43,7 +43,7 @@ export default function NotificationsPage() {
       
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 800, color: 'var(--color-ink)', letterSpacing: '-0.02em', marginBottom: '8px' }}>
+          <h1 style={{ fontSize: '30px', fontWeight: 600, color: 'var(--color-ink)', letterSpacing: '-0.02em', marginBottom: '8px' }}>
             Notifications
           </h1>
           <p style={{ fontSize: '15px', color: 'var(--color-muted)', fontWeight: 500 }}>

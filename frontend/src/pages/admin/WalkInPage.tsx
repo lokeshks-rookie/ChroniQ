@@ -274,7 +274,7 @@ export const WalkInPage: React.FC = () => {
                 onChange={(e) => setValue('departmentId', e.target.value)}
                 options={departments.map((d) => ({
                   value: d.id,
-                  label: `${d.name} (${d.token_prefix})`,
+                  label: d.name,
                 }))}
               />
 

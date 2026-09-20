@@ -18,6 +18,7 @@ import {
   Users,
   Hash,
 } from 'lucide-react';
+import { DepartmentIcon } from '@/components/ui/DepartmentIcon';
 import type { Department } from '@/types';
 
 export const DepartmentsPage: React.FC = () => {
@@ -142,12 +143,12 @@ export const DepartmentsPage: React.FC = () => {
           const loadPct = Math.min(100, Math.round((waitingCount / 10) * 100));
 
           return (
-            <Card key={dept.id} padding="md" className="space-y-4 flex flex-col justify-between">
+            <Card key={dept.id} tilt padding="md" className="space-y-4 flex flex-col justify-between">
               <div>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-card bg-cream text-ink flex items-center justify-center font-bold text-sm">
-                      {dept.token_prefix}
+                    <div className="w-10 h-10 rounded-card bg-cream text-ink flex items-center justify-center shrink-0 border border-ink/10 shadow-xs">
+                      <DepartmentIcon name={dept.name} prefix={dept.token_prefix} className="w-5 h-5 text-ink" />
                     </div>
                     <div>
                       <h3 className="font-semibold text-base text-ink">{dept.name}</h3>

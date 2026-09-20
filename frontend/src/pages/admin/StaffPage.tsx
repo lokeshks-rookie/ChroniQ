@@ -331,7 +331,7 @@ export const StaffPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-hidden">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="eyebrow">

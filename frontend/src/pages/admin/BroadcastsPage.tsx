@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card } from '@/components/ui/Card';
+import { TiltCard } from '@/components/ui/tilt-card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -457,7 +458,12 @@ export const BroadcastsPage: React.FC = () => {
             </div>
 
             {/* Phone-shaped card using ONLY palette tokens */}
-            <div className="mx-auto w-[280px] rounded-[32px] border-4 border-ink bg-base p-4 shadow-xl space-y-4">
+            <TiltCard
+              tiltLimit={12}
+              scale={1.03}
+              perspective={1000}
+              className="mx-auto w-[280px] rounded-[32px] border-4 border-ink bg-base p-4 shadow-xl space-y-4 cursor-pointer"
+            >
               {/* Speaker notch */}
               <div className="w-16 h-1.5 bg-ink/30 rounded-full mx-auto" />
 
@@ -496,7 +502,7 @@ export const BroadcastsPage: React.FC = () => {
 
               {/* Home indicator bar */}
               <div className="w-24 h-1 bg-ink/40 rounded-full mx-auto mt-6" />
-            </div>
+            </TiltCard>
           </Card>
         </div>
       </div>

@@ -4,6 +4,8 @@ import {
   LayoutDashboard, Search, CalendarDays, Bell, User, Users, FileText,
   HelpCircle, LogOut, Menu, X, ChevronDown, MoreHorizontal
 } from 'lucide-react';
+import { Dropdown } from '@/components/ui/Dropdown';
+import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
 import { DesktopSidebar } from '@/components/layout/Sidebar';
 import { useNotificationsStore } from '@/store/notificationsStore';
@@ -93,20 +95,6 @@ export default function AppLayout() {
             {mobileDrawerOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
 
-          {/* Mobile logo */}
-          <Link to="/" className="md:hidden" style={{ display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
-            <span style={{
-              width: '24px', height: '24px', borderRadius: '6px',
-              backgroundColor: 'var(--color-ink)', display: 'flex',
-              alignItems: 'center', justifyContent: 'center',
-            }}>
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                <rect x="6.5" y="2" width="3" height="12" rx="1.5" fill="#FDF9F0" />
-                <rect x="2" y="6.5" width="12" height="3" rx="1.5" fill="#FDF9F0" />
-              </svg>
-            </span>
-            <span style={{ fontWeight: 700, fontSize: '16px', color: 'var(--color-ink)' }}>ChroniQ</span>
-          </Link>
 
           {/* Spacer for desktop */}
           <div className="hidden md:block" style={{ flex: 1 }} />
@@ -133,58 +121,54 @@ export default function AppLayout() {
             </Link>
 
             {/* User dropdown */}
-            <div style={{ position: 'relative' }}>
-              <button
-                onClick={() => setUserMenuOpen(!userMenuOpen)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '8px',
-                  padding: '6px 12px', borderRadius: '10px',
-                  border: '1.5px solid rgba(154,110,86,0.15)',
-                  backgroundColor: 'transparent', cursor: 'pointer',
-                  fontFamily: 'var(--font-sans)',
-                }}
-              >
-                <span style={{
-                  width: '28px', height: '28px', borderRadius: '50%',
-                  backgroundColor: 'var(--color-accent)', display: 'flex',
-                  alignItems: 'center', justifyContent: 'center',
-                  fontSize: '12px', fontWeight: 700, color: 'var(--color-base)',
-                }}>
-                  {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-                </span>
-                <span className="hidden sm:inline" style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-ink)' }}>
-                  {user?.name?.split(' ')[0]}
-                </span>
-                <ChevronDown size={14} color="var(--color-muted)" />
-              </button>
-
-              {userMenuOpen && (
-                <div style={{
-                  position: 'absolute', top: '100%', right: 0, marginTop: '8px',
-                  width: '180px', backgroundColor: 'var(--color-base)',
-                  borderRadius: '12px', border: '1px solid rgba(154,110,86,0.12)',
-                  boxShadow: '0 8px 24px rgba(25,8,1,0.1)', zIndex: 50,
-                  overflow: 'hidden',
-                }}>
-                  <Link to="/app/profile" style={{
-                    display: 'flex', alignItems: 'center', gap: '8px',
-                    padding: '12px 16px', fontSize: '14px', fontWeight: 500,
-                    color: 'var(--color-ink)', textDecoration: 'none',
-                    borderBottom: '1px solid rgba(154,110,86,0.08)',
-                  }}>
-                    <User size={16} /> Profile
-                  </Link>
-                  <button onClick={handleLogout} style={{
-                    display: 'flex', alignItems: 'center', gap: '8px',
-                    padding: '12px 16px', fontSize: '14px', fontWeight: 500,
-                    color: 'var(--color-danger)', background: 'none', border: 'none',
-                    cursor: 'pointer', width: '100%', fontFamily: 'var(--font-sans)',
-                  }}>
-                    <LogOut size={16} /> Log out
-                  </button>
-                </div>
+            <Dropdown
+              align="right"
+              width="w-48"
+              options={[
+                {
+                  value: 'profile',
+                  label: 'Profile',
+                  icon: <User size={16} />,
+                  onClick: () => navigate('/app/profile'),
+                },
+                {
+                  value: 'logout',
+                  label: 'Log out',
+                  icon: <LogOut size={16} />,
+                  destructive: true,
+                  divider: true,
+                  onClick: handleLogout,
+                },
+              ]}
+              renderTrigger={({ toggle, isOpen, ref }) => (
+                <button
+                  ref={ref}
+                  type="button"
+                  onClick={toggle}
+                  className={cn(
+                    'h-8 px-2.5 rounded-full text-sm font-medium inline-flex items-center gap-2 transition-all duration-150 cursor-pointer select-none',
+                    'bg-base text-ink border border-ink/15 hover:border-accent/40 hover:bg-cream/10',
+                    isOpen && 'border-accent/50 bg-cream/15 ring-2 ring-accent/20',
+                    'focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-accent/30'
+                  )}
+                >
+                  <span className="w-5 h-5 rounded-full bg-ink text-base flex items-center justify-center text-[10px] font-bold shrink-0">
+                    {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                  </span>
+                  <span className="hidden sm:inline text-xs font-semibold">
+                    {user?.name?.split(' ')[0]}
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    strokeWidth={2}
+                    className={cn(
+                      'text-muted transition-transform duration-200',
+                      isOpen && 'rotate-180 text-accent'
+                    )}
+                  />
+                </button>
               )}
-            </div>
+            />
           </div>
         </header>
 
@@ -230,7 +214,7 @@ export default function AppLayout() {
         )}
 
         {/* ── Page Content ── */}
-        <main style={{ flex: 1, padding: '24px', paddingBottom: '96px', overflowY: 'auto' }}>
+        <main style={{ flex: 1, minHeight: 0, padding: '20px 24px', paddingBottom: '96px', overflowY: 'auto' }}>
           <Outlet />
         </main>
 

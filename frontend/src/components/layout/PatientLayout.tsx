@@ -20,6 +20,8 @@ import { useAuthStore } from '@/store/authStore';
 import { usePatientStore } from '@/store/patientStore';
 import { ToastContainer } from '@/components/ui/ToastContainer';
 import { Avatar } from '@/components/ui/Avatar';
+import { Dropdown, DropdownOption } from '@/components/ui/Dropdown';
+import { cn } from '@/lib/utils';
 
 // ==========================================
 // Data-driven nav config so pages 10–19 can plug in later
@@ -151,69 +153,42 @@ export const PatientLayout: React.FC = () => {
             {isSubPage ? pageTitle : ''}
           </span>
 
-          <div className="relative" ref={avatarMenuRef}>
-            <button
-              onClick={() => setAvatarMenuOpen(!avatarMenuOpen)}
-              className="p-1 cursor-pointer"
-              aria-label="Account menu"
-            >
-              <Avatar name={patient.name} size="sm" />
-            </button>
-
-            {avatarMenuOpen && (
-              <div className="absolute right-0 top-full mt-2 w-56 bg-base border border-ink/15 rounded-card shadow-xl z-50 py-2">
-                <div className="px-4 py-2 border-b border-ink/10">
-                  <p className="text-sm font-medium text-ink">{patient.name}</p>
-                  <p className="text-xs text-muted">{patient.phone}</p>
-                </div>
-                {avatarMenuItems.map((item) => (
-                  <NavLink
-                    key={item.id}
-                    to={item.path}
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-ink hover:bg-ink/5 transition-colors"
-                    onClick={() => setAvatarMenuOpen(false)}
-                  >
-                    <item.icon className="w-4 h-4 text-muted" strokeWidth={1.75} />
-                    {item.label}
-                  </NavLink>
-                ))}
-                <div className="border-t border-ink/10 mt-1 pt-1">
-                  <button
-                    onClick={() => setRoleSwitcherOpen(!roleSwitcherOpen)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-ink hover:bg-ink/5 transition-colors w-full cursor-pointer"
-                  >
-                    <Settings className="w-4 h-4 text-muted" strokeWidth={1.75} />
-                    Demo role
-                    <ChevronDown className={`w-3.5 h-3.5 ml-auto transition-transform ${roleSwitcherOpen ? 'rotate-180' : ''}`} strokeWidth={1.75} />
-                  </button>
-                  {roleSwitcherOpen && (
-                    <div className="mx-2 mb-1 bg-ink/5 rounded-lg overflow-hidden">
-                      {(['hospital_admin', 'receptionist', 'doctor', 'patient'] as const).map((role) => (
-                        <button
-                          key={role}
-                          onClick={() => handleRoleSwitch(role)}
-                          className={`flex items-center gap-2 px-3 py-2 text-xs w-full hover:bg-ink/10 transition-colors cursor-pointer ${
-                            currentRole === role ? 'text-accent font-semibold' : 'text-ink'
-                          }`}
-                        >
-                          {role === 'hospital_admin' && <ShieldCheck className="w-3.5 h-3.5" strokeWidth={1.75} />}
-                          {role === 'receptionist' && <User className="w-3.5 h-3.5" strokeWidth={1.75} />}
-                          {role === 'doctor' && <Stethoscope className="w-3.5 h-3.5" strokeWidth={1.75} />}
-                          {role === 'patient' && <User className="w-3.5 h-3.5" strokeWidth={1.75} />}
-                          {{
-                            hospital_admin: 'Hospital admin',
-                            receptionist: 'Receptionist',
-                            doctor: 'Doctor',
-                            patient: 'Patient',
-                          }[role]}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
+          <Dropdown
+            align="right"
+            width="w-56"
+            options={[
+              ...avatarMenuItems.map((item) => ({
+                value: item.id,
+                label: item.label,
+                icon: <item.icon className="w-4 h-4" strokeWidth={1.75} />,
+                onClick: () => navigate(item.path),
+              })),
+              {
+                value: 'role_admin',
+                label: 'Switch to Admin',
+                icon: <ShieldCheck className="w-4 h-4 text-accent" />,
+                divider: true,
+                onClick: () => handleRoleSwitch('hospital_admin'),
+              },
+              {
+                value: 'role_doctor',
+                label: 'Switch to Doctor',
+                icon: <Stethoscope className="w-4 h-4 text-accent" />,
+                onClick: () => handleRoleSwitch('doctor'),
+              },
+            ]}
+            renderTrigger={({ toggle, ref }) => (
+              <button
+                ref={ref}
+                type="button"
+                onClick={toggle}
+                className="p-1 cursor-pointer rounded-full hover:ring-2 hover:ring-accent/40 transition-all"
+                aria-label="Account menu"
+              >
+                <Avatar name={patient.name} size="sm" />
+              </button>
             )}
-          </div>
+          />
         </div>
       </header>
 
@@ -247,76 +222,57 @@ export const PatientLayout: React.FC = () => {
             ))}
           </nav>
 
-          {/* Avatar menu */}
-          <div className="relative" ref={avatarMenuRef}>
-            <button
-              onClick={() => setAvatarMenuOpen(!avatarMenuOpen)}
-              className="flex items-center gap-2 p-1.5 rounded-full hover:bg-ink/5 transition-colors cursor-pointer"
-              aria-label="Account menu"
-            >
-              <Avatar name={patient.name} size="sm" />
-              <span className="text-sm font-medium text-ink max-w-32 truncate">{patient.name}</span>
-              <ChevronDown className={`w-4 h-4 text-muted transition-transform ${avatarMenuOpen ? 'rotate-180' : ''}`} strokeWidth={1.75} />
-            </button>
-
-            {avatarMenuOpen && (
-              <div className="absolute right-0 top-full mt-2 w-60 bg-base border border-ink/15 rounded-card shadow-xl z-50 py-2">
-                <div className="px-4 py-2 border-b border-ink/10">
-                  <p className="text-sm font-medium text-ink">{patient.name}</p>
-                  <p className="text-xs text-muted">{patient.email || patient.phone}</p>
-                </div>
-                {avatarMenuItems.map((item) => (
-                  <NavLink
-                    key={item.id}
-                    to={item.path}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
-                        isActive ? 'text-accent font-medium' : 'text-ink hover:bg-ink/5'
-                      }`
-                    }
-                    onClick={() => setAvatarMenuOpen(false)}
-                  >
-                    <item.icon className="w-4 h-4" strokeWidth={1.75} />
-                    {item.label}
-                  </NavLink>
-                ))}
-                <div className="border-t border-ink/10 mt-1 pt-1">
-                  <button
-                    onClick={() => setRoleSwitcherOpen(!roleSwitcherOpen)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-ink hover:bg-ink/5 transition-colors w-full cursor-pointer"
-                  >
-                    <Settings className="w-4 h-4 text-muted" strokeWidth={1.75} />
-                    Demo role
-                    <ChevronDown className={`w-3.5 h-3.5 ml-auto transition-transform ${roleSwitcherOpen ? 'rotate-180' : ''}`} strokeWidth={1.75} />
-                  </button>
-                  {roleSwitcherOpen && (
-                    <div className="mx-2 mb-1 bg-ink/5 rounded-lg overflow-hidden">
-                      {(['hospital_admin', 'receptionist', 'doctor', 'patient'] as const).map((role) => (
-                        <button
-                          key={role}
-                          onClick={() => handleRoleSwitch(role)}
-                          className={`flex items-center gap-2 px-3 py-2 text-xs w-full hover:bg-ink/10 transition-colors cursor-pointer ${
-                            currentRole === role ? 'text-accent font-semibold' : 'text-ink'
-                          }`}
-                        >
-                          {role === 'hospital_admin' && <ShieldCheck className="w-3.5 h-3.5" strokeWidth={1.75} />}
-                          {role === 'receptionist' && <User className="w-3.5 h-3.5" strokeWidth={1.75} />}
-                          {role === 'doctor' && <Stethoscope className="w-3.5 h-3.5" strokeWidth={1.75} />}
-                          {role === 'patient' && <User className="w-3.5 h-3.5" strokeWidth={1.75} />}
-                          {{
-                            hospital_admin: 'Hospital admin',
-                            receptionist: 'Receptionist',
-                            doctor: 'Doctor',
-                            patient: 'Patient',
-                          }[role]}
-                        </button>
-                      ))}
-                    </div>
+          {/* Desktop Avatar menu */}
+          <Dropdown
+            align="right"
+            width="w-60"
+            options={[
+              ...avatarMenuItems.map((item) => ({
+                value: item.id,
+                label: item.label,
+                icon: <item.icon className="w-4 h-4" strokeWidth={1.75} />,
+                onClick: () => navigate(item.path),
+              })),
+              {
+                value: 'role_admin',
+                label: 'Switch to Admin',
+                icon: <ShieldCheck className="w-4 h-4 text-accent" />,
+                divider: true,
+                onClick: () => handleRoleSwitch('hospital_admin'),
+              },
+              {
+                value: 'role_doctor',
+                label: 'Switch to Doctor',
+                icon: <Stethoscope className="w-4 h-4 text-accent" />,
+                onClick: () => handleRoleSwitch('doctor'),
+              },
+            ]}
+            renderTrigger={({ toggle, isOpen, ref }) => (
+              <button
+                ref={ref}
+                type="button"
+                onClick={toggle}
+                className={cn(
+                  'h-8 px-2.5 rounded-full text-sm font-medium inline-flex items-center gap-2 transition-all duration-150 cursor-pointer select-none',
+                  'bg-base text-ink border border-ink/15 hover:border-accent/40 hover:bg-cream/10',
+                  isOpen && 'border-accent/50 bg-cream/15 ring-2 ring-accent/20',
+                  'focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-accent/30'
+                )}
+                aria-label="Account menu"
+              >
+                <Avatar name={patient.name} size="sm" />
+                <span className="text-xs font-semibold text-ink max-w-32 truncate">{patient.name}</span>
+                <ChevronDown
+                  size={14}
+                  strokeWidth={2}
+                  className={cn(
+                    'text-muted transition-transform duration-200',
+                    isOpen && 'rotate-180 text-accent'
                   )}
-                </div>
-              </div>
+                />
+              </button>
             )}
-          </div>
+          />
         </div>
       </header>
 

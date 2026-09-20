@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { QueueEntry, Appointment } from '@/types';
 import { Button } from '@/components/ui/Button';
+import { TiltCard } from '@/components/ui/tilt-card';
 import { formatElapsedSeconds } from '@/lib/time';
 import { Play, Check, RotateCcw, UserX, PhoneCall } from 'lucide-react';
 
@@ -50,7 +51,11 @@ export const NowServingCard: React.FC<NowServingCardProps> = ({
   // Case 1: Active Consultation
   if (currentEntry && currentEntry.status === 'in_consultation') {
     return (
-      <div className="bg-ink text-base rounded-card p-5 border border-ink/20 flex flex-col justify-between min-h-[220px]">
+      <TiltCard
+        tiltLimit={10}
+        scale={1.03}
+        className="bg-ink text-base rounded-card p-5 border border-ink/20 flex flex-col justify-between min-h-[220px] shadow-lg"
+      >
         <div>
           <div className="flex items-center justify-between text-xs text-base/70">
             <span className="uppercase tracking-widest font-semibold flex items-center gap-1.5">
@@ -84,7 +89,7 @@ export const NowServingCard: React.FC<NowServingCardProps> = ({
             Complete
           </Button>
         </div>
-      </div>
+      </TiltCard>
     );
   }
 
@@ -93,7 +98,11 @@ export const NowServingCard: React.FC<NowServingCardProps> = ({
     const isSecondCall = currentEntry.call_count >= 2;
 
     return (
-      <div className="bg-ink text-base rounded-card p-5 border border-accent ring-1 ring-accent/50 flex flex-col justify-between min-h-[220px]">
+      <TiltCard
+        tiltLimit={10}
+        scale={1.03}
+        className="bg-ink text-base rounded-card p-5 border border-accent ring-1 ring-accent/50 flex flex-col justify-between min-h-[220px] shadow-lg"
+      >
         <div>
           <div className="flex items-center justify-between text-xs">
             <span className="uppercase tracking-widest font-bold text-accent flex items-center gap-1.5">
@@ -149,13 +158,17 @@ export const NowServingCard: React.FC<NowServingCardProps> = ({
             Start
           </Button>
         </div>
-      </div>
+      </TiltCard>
     );
   }
 
   // Case 3: Idle / Ready for next patient
   return (
-    <div className="bg-ink text-base rounded-card p-5 border border-ink/20 flex flex-col justify-between min-h-[220px]">
+    <TiltCard
+      tiltLimit={10}
+      scale={1.03}
+      className="bg-ink text-base rounded-card p-5 border border-ink/20 flex flex-col justify-between min-h-[220px] shadow-lg"
+    >
       <div>
         <div className="flex items-center justify-between text-xs text-base/60">
           <span className="uppercase tracking-widest font-semibold flex items-center gap-1.5">
@@ -186,6 +199,6 @@ export const NowServingCard: React.FC<NowServingCardProps> = ({
           Call next
         </Button>
       </div>
-    </div>
+    </TiltCard>
   );
 };

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card } from '@/components/ui/Card';
+import { TiltCard } from '@/components/ui/tilt-card';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { StatCard } from '@/components/ui/StatCard';
@@ -293,8 +294,8 @@ export const ReportsPage: React.FC = () => {
           <div className="h-64" aria-label="Footfall chart comparing prebooked and walk-in patient volume">
             <BarChart margin={{ top: 8, right: 8, bottom: 40, left: 8 }} data={footfallTrendData} xDataKey="day">
               <Grid horizontal />
-              <Bar dataKey="prebooked" fill="var(--chart-1)" lineCap="round" name="Pre-booked" />
-              <Bar dataKey="walkin" fill="var(--chart-3)" lineCap="round" name="Walk-in" />
+              <Bar dataKey="prebooked" fill="var(--color-ink)" lineCap="round" name="Pre-booked" />
+              <Bar dataKey="walkin" fill="var(--color-accent)" lineCap="round" name="Walk-in" />
               <BarXAxis />
               <ChartTooltip />
             </BarChart>
@@ -348,7 +349,7 @@ export const ReportsPage: React.FC = () => {
         </div>
 
         {/* Heatmap Grid */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-hidden">
           <table className="w-full text-center border-collapse text-xs">
             <thead>
               <tr>
@@ -427,7 +428,11 @@ export const ReportsPage: React.FC = () => {
             <h3 className="text-base font-medium text-ink mt-0.5">Post-Visit Review Ratings</h3>
           </div>
 
-          <div className="flex items-center gap-6 p-4 rounded-card bg-ink/5 border border-ink/10">
+          <TiltCard
+            tiltLimit={14}
+            scale={1.03}
+            className="flex items-center gap-6 p-4 rounded-card bg-ink/5 border border-ink/10 cursor-pointer shadow-xs hover:shadow-md transition-shadow"
+          >
             <div className="text-center">
               <div className="text-4xl font-extrabold text-ink font-mono">{hospital.rating_avg}</div>
               <div className="flex items-center justify-center gap-0.5 my-1 text-accent">
@@ -449,7 +454,7 @@ export const ReportsPage: React.FC = () => {
                 </div>
               ))}
             </div>
-          </div>
+          </TiltCard>
         </Card>
       </div>
     </div>

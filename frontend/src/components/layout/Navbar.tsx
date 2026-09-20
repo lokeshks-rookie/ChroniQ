@@ -70,22 +70,7 @@ export default function Navbar() {
             flexShrink: 0,
           }}
         >
-          <span
-            style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              backgroundColor: 'var(--color-ink)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <rect x="6.5" y="2" width="3" height="12" rx="1.5" fill="#FDF9F0" />
-              <rect x="2" y="6.5" width="12" height="3" rx="1.5" fill="#FDF9F0" />
-            </svg>
-          </span>
+          <img src="/logo.png" alt="ChroniQ" width="32" height="32" style={{ display: 'block', borderRadius: '8px', objectFit: 'contain' }} />
           <span
             style={{
               fontWeight: 700,

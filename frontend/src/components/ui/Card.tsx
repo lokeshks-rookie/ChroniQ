@@ -1,9 +1,16 @@
 import React from 'react';
+import { TiltCard } from './tilt-card';
 
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: 'base' | 'ink' | 'accent' | 'cream';
   padding?: 'none' | 'sm' | 'md' | 'lg';
   radius?: 'card' | 'panel';
+  tilt?: boolean;
+  tiltLimit?: number;
+  scale?: number;
+  perspective?: number;
+  effect?: 'gravitate' | 'evade';
+  spotlight?: boolean;
 }
 
 export const Card = React.forwardRef<HTMLDivElement, CardProps>(
@@ -12,6 +19,12 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
       variant = 'base',
       padding = 'md',
       radius = 'card',
+      tilt = false,
+      tiltLimit = 15,
+      scale = 1.04,
+      perspective = 1000,
+      effect = 'evade',
+      spotlight = true,
       className = '',
       children,
       ...props
@@ -37,16 +50,36 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
       panel: '!rounded-xl',
     }[radius];
 
+    const combinedClassName = `${variantClasses} ${paddingClasses} ${radiusClasses} ${className}`;
+
+    if (!tilt) {
+      return (
+        <div
+          ref={ref}
+          className={`${combinedClassName} transition-colors`}
+          {...props}
+        >
+          {children}
+        </div>
+      );
+    }
+
     return (
-      <div
+      <TiltCard
         ref={ref}
-        className={`${variantClasses} ${paddingClasses} ${radiusClasses} transition-colors ${className}`}
+        tiltLimit={tiltLimit}
+        scale={scale}
+        perspective={perspective}
+        effect={effect}
+        spotlight={spotlight}
+        className={combinedClassName}
         {...props}
       >
         {children}
-      </div>
+      </TiltCard>
     );
   }
 );
 
 Card.displayName = 'Card';
+

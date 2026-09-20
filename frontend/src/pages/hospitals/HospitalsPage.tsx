@@ -4,6 +4,7 @@ import {
   Search, MapPin, Star, Clock, ChevronDown, SlidersHorizontal,
   LayoutList, Map, X, ArrowRight, Building2, ChevronLeft,
 } from 'lucide-react';
+import { Dropdown } from '@/components/ui/Dropdown';
 import {
   mockHospitals,
   filterHospitals,
@@ -302,32 +303,26 @@ function FilterSelect({
   onChange: (v: string) => void;
   options: string[]; placeholder: string;
 }) {
+  const dropdownOptions = [
+    { value: '', label: placeholder },
+    ...options.map((o) => ({ value: o, label: o })),
+  ];
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: '140px' }}>
       <label htmlFor={id} style={{ fontSize: '11px', fontWeight: 600, color: 'var(--color-muted)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
         {label}
       </label>
-      <div style={{ position: 'relative' }}>
-        <select
-          id={id}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          style={{
-            width: '100%', padding: '9px 32px 9px 12px',
-            borderRadius: '10px', border: '1.5px solid rgba(154,110,86,0.2)',
-            backgroundColor: 'var(--color-base)', color: 'var(--color-ink)',
-            fontSize: '13px', fontFamily: 'var(--font-sans)',
-            appearance: 'none', cursor: 'pointer', outline: 'none',
-            transition: 'border-color 0.2s',
-          }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--color-accent)'; }}
-          onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(154,110,86,0.2)'; }}
-        >
-          <option value="">{placeholder}</option>
-          {options.map((o) => <option key={o} value={o}>{o}</option>)}
-        </select>
-        <ChevronDown size={14} color="var(--color-accent)" style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-      </div>
+      <Dropdown
+        id={id}
+        value={value}
+        onChange={(v) => onChange(v)}
+        options={dropdownOptions}
+        placeholder={placeholder}
+        className="w-full"
+        triggerClassName="w-full justify-between"
+        width="w-full"
+      />
     </div>
   );
 }

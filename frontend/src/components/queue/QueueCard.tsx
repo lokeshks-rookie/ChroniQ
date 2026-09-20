@@ -4,6 +4,8 @@ import { TokenBadge } from './TokenBadge';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { formatTimeIST } from '@/lib/time';
 import { MoreVertical, FastForward, UserX, Star, Clock } from 'lucide-react';
+import { Dropdown, DropdownOption } from '@/components/ui/Dropdown';
+import { cn } from '@/lib/utils';
 
 export interface QueueCardProps {
   entry: QueueEntry;
@@ -20,8 +22,6 @@ export const QueueCard: React.FC<QueueCardProps> = ({
   onMarkNoShow,
   onTogglePriority,
 }) => {
-  const [menuOpen, setMenuOpen] = useState(false);
-
   // Calculate waiting time in minutes
   const arrivalTime = entry.checked_in_at ? new Date(entry.checked_in_at).getTime() : new Date(entry.sort_time).getTime();
   const waitingMinutes = Math.max(1, Math.floor((Date.now() - arrivalTime) / (60 * 1000)));
@@ -58,59 +58,45 @@ export const QueueCard: React.FC<QueueCardProps> = ({
         </div>
 
         {/* Action Menu Toggle */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="p-1 rounded text-ink/60 hover:text-ink hover:bg-ink/5 cursor-pointer"
-            aria-label="Queue card options"
-          >
-            <MoreVertical className="w-4 h-4" />
-          </button>
-
-          {menuOpen && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-              <div className="absolute right-0 top-full mt-1 w-44 bg-base border border-ink/15 rounded-card shadow-lg p-1 z-20 text-xs space-y-0.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onSkip(entry.id);
-                  }}
-                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-ink/5 text-left text-ink cursor-pointer"
-                >
-                  <FastForward className="w-3.5 h-3.5" />
-                  <span>Skip (move back)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onTogglePriority(entry.id);
-                  }}
-                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-ink/5 text-left text-ink cursor-pointer"
-                >
-                  <Star className="w-3.5 h-3.5 text-accent" />
-                  <span>{isPriority ? 'Remove Priority' : 'Move to Priority'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onMarkNoShow(entry.id);
-                  }}
-                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-danger/10 text-left text-danger cursor-pointer font-medium"
-                >
-                  <UserX className="w-3.5 h-3.5" />
-                  <span>Mark no-show</span>
-                </button>
-              </div>
-            </>
+        <Dropdown
+          options={[
+            {
+              value: 'skip',
+              label: 'Skip (move back)',
+              icon: <FastForward className="w-3.5 h-3.5" />,
+              onClick: () => onSkip(entry.id),
+            },
+            {
+              value: 'priority',
+              label: isPriority ? 'Remove Priority' : 'Move to Priority',
+              icon: <Star className="w-3.5 h-3.5 text-accent" />,
+              onClick: () => onTogglePriority(entry.id),
+            },
+            {
+              value: 'noshow',
+              label: 'Mark no-show',
+              icon: <UserX className="w-3.5 h-3.5" />,
+              destructive: true,
+              onClick: () => onMarkNoShow(entry.id),
+            },
+          ]}
+          align="right"
+          width="w-48"
+          renderTrigger={({ toggle, isOpen, ref }) => (
+            <button
+              ref={ref}
+              type="button"
+              onClick={toggle}
+              className={cn(
+                'p-1.5 rounded-full transition-colors cursor-pointer text-ink/60 hover:text-ink hover:bg-cream/20',
+                isOpen && 'bg-cream/30 text-ink'
+              )}
+              aria-label="Queue card options"
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
           )}
-        </div>
+        />
       </div>
 
       {/* Patient Name and Info */}

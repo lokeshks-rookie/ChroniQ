@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, AlertCircle, Plus, X, Upload } from 'lucide-react';
+import { Dropdown } from '@/components/ui/Dropdown';
 import { useBookingStore } from '@/store/bookingStore';
 import { useAuthStore } from '@/store/authStore';
 import { mockFamilyMembers, type MockFamilyMember } from '@/data/mockData';
@@ -240,12 +241,22 @@ export default function BookingDetailsPage() {
               <input className="detail-input" placeholder="Full name" value={newName} onChange={(e) => setNewName(e.target.value)} />
               <div style={{ display: 'flex', gap: '10px' }}>
                 <input className="detail-input" type="number" placeholder="Age" value={newAge} onChange={(e) => setNewAge(e.target.value)} style={{ flex: 1 }} />
-                <select className="detail-input" value={newGender} onChange={(e) => setNewGender(e.target.value)} style={{ flex: 1 }}>
-                  <option value="">Gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
+                <div style={{ flex: 1 }}>
+                  <Dropdown
+                    value={newGender}
+                    onChange={(val) => setNewGender(val)}
+                    placeholder="Gender"
+                    options={[
+                      { value: '', label: 'Gender' },
+                      { value: 'male', label: 'Male' },
+                      { value: 'female', label: 'Female' },
+                      { value: 'other', label: 'Other' },
+                    ]}
+                    width="w-full"
+                    className="w-full"
+                    triggerClassName="w-full justify-between h-[42px] rounded-[10px]"
+                  />
+                </div>
               </div>
               <input className="detail-input" placeholder="Relation (e.g. Spouse, Child)" value={newRelation} onChange={(e) => setNewRelation(e.target.value)} />
               <button onClick={handleAddFamily} disabled={!newName.trim() || !newAge || !newGender || !newRelation.trim()}

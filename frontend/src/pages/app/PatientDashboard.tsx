@@ -14,15 +14,27 @@ export default function PatientDashboard() {
   const dateStr = today.toLocaleDateString('en-IN', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
+  const hour = today.getHours();
+  const timeGreeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   return (
     <div style={{ maxWidth: '960px' }}>
       {/* ── Welcome Header ── */}
-      <div style={{ marginBottom: '32px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: 800, color: 'var(--color-ink)', letterSpacing: '-0.02em', marginBottom: '4px' }}>
-          Hi, {firstName}
+      <div style={{ marginBottom: '28px', paddingTop: '4px', textAlign: 'center' }}>
+        <h1 style={{
+          fontSize: '50px',
+          letterSpacing: '-0.03em',
+          lineHeight: 1.2,
+          marginBottom: '6px',
+        }}>
+          <span style={{ fontWeight: 500, color: 'var(--color-accent)' }}>
+            {timeGreeting},{' '}
+          </span>
+          <span style={{ fontWeight: 800, color: 'var(--color-ink)' }}>
+            {firstName}!
+          </span>
         </h1>
-        <p style={{ fontSize: '15px', color: 'var(--color-muted)', fontWeight: 500 }}>
+        <p style={{ fontSize: '14px', color: 'var(--color-muted)', fontWeight: 500 }}>
           {dateStr}
         </p>
       </div>
