@@ -50,6 +50,7 @@ export default function BookingConfirmPage() {
   const hospital = getHospitalById(store.doctor.hospitalId);
 
   const handleConfirm = async () => {
+    if (!store.doctor || !store.slotId) return;
     if (isSubmitting || (store.holdExpiry || 0) <= Date.now()) return;
     setError(null);
     setIsSubmitting(true);
