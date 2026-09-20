@@ -1,0 +1,150 @@
+@import "@fontsource-variable/inter";
+@import "@fontsource/noto-sans-tamil";
+@import "@fontsource/noto-sans-devanagari";
+@import "tailwindcss";
+
+:root {
+  /* Core brand tokens — The ONLY place hex values may exist */
+  --color-ink: #190801;
+  --color-accent: #9A6E56;
+  --color-base: #FDF9F0;
+  --color-cream: #B88C70;
+  --color-text-muted: #694436;
+  --color-success: #2E7D46;
+  --color-danger: #C0392B;
+  --color-info: #3B5BA5;
+
+  /* Typography */
+  --font-sans: 'Inter Variable', 'Noto Sans Tamil', 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* Radius tokens */
+  --radius-sm: 8px;
+  --radius-card: 12px;
+  --radius-panel: 16px;
+  --radius-pill: 999px;
+
+  /* Special screens adaptations (Section 4.6) */
+  --touch-target-min: 64px;
+  --keypad-key-size: 80px;
+}
+
+@theme {
+  --font-sans: var(--font-sans);
+
+  --color-ink: var(--color-ink);
+  --color-accent: var(--color-accent);
+  --color-base: var(--color-base);
+  --color-cream: var(--color-cream);
+  --color-muted: var(--color-text-muted);
+  --color-success: var(--color-success);
+  --color-danger: var(--color-danger);
+  --color-info: var(--color-info);
+
+  --radius-card: var(--radius-card);
+  --radius-panel: var(--radius-panel);
+  --radius-pill: var(--radius-pill);
+}
+
+/* Global resets & typography */
+html {
+  font-family: var(--font-sans);
+  background-color: var(--color-base);
+  color: var(--color-ink);
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: var(--color-base);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/* Focus styles: visible 2px ink, base on dark surfaces */
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+.on-dark :focus-visible {
+  outline: 2px solid var(--color-base);
+  outline-offset: 2px;
+}
+
+/* Motion reduction */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Thermal slip print styles (80mm width, monochrome) */
+@media print {
+  body {
+    background: transparent !important;
+    color: var(--color-ink) !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  #thermal-print-area, #thermal-print-area * {
+    visibility: visible;
+  }
+
+  #thermal-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    margin: 0 auto;
+    padding: 8mm;
+    background: transparent !important;
+    color: var(--color-ink) !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* Calling tile gentle pulse animation (two gentle pulses) */
+@keyframes calling-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(154, 110, 86, 0.4);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 0 0 16px rgba(154, 110, 86, 0);
+  }
+}
+
+.animate-calling-pulse {
+  animation: calling-pulse 2.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-calling-pulse {
+    animation: none !important;
+  }
+}
+
+/* Kiosk touch-friendly constraints */
+.kiosk-screen {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.kiosk-screen input {
+  user-select: auto;
+  -webkit-user-select: auto;
+}

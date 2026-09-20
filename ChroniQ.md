@@ -912,7 +912,7 @@ mediq/
 │       ├── services/        # api client, SSE consumer
 │       ├── store/           # Zustand stores
 │       └── routes.tsx
-└── project.md
+└── ChroniQ.md
 ```
 
 ---
