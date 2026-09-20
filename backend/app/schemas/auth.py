@@ -72,6 +72,7 @@ class UserResponse(BaseModel):
     email: Optional[str] = None
     role: Role
     hospital_id: Optional[str] = None
+    linked_doctor_id: Optional[str] = None
     preferred_language: str = "en"
     is_verified: bool = False
     is_active: bool = True

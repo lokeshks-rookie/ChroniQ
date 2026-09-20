@@ -45,6 +45,12 @@ async def confirm_booking(
             detail="Slot is no longer held. Please select and hold a slot again."
         )
 
+    if slot.held_by != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not hold this slot. Please select and hold an open slot to book.",
+        )
+
     # Doctor details
     from bson import ObjectId
     doctor = await Doctor.find_one(Doctor.custom_id == doctor_id)
@@ -116,28 +122,31 @@ async def confirm_booking(
         created_via=created_via,
     )
 
-    # Multi-document update (with transaction if replica set available)
-    client = get_client()
-    if client and getattr(client, "is_mongos", False) or hasattr(client, "start_session"):
-        try:
-            async with await client.start_session() as session:
-                async with session.start_transaction():
-                    slot.status = SlotStatus.BOOKED
-                    slot.appointment_id = str(appointment.id)
-                    await slot.save(session=session)
-                    await appointment.insert(session=session)
-                    return appointment
-        except Exception:
-            # Fallback to direct writes if replica set not configured
-            pass
+    # Atomic conditional update on slot: must match held_by == user_id and status == HELD
+    slot_collection = Slot.get_pymongo_collection()
+    slot_oid = ObjectId(slot_id) if ObjectId.is_valid(slot_id) else None
+    id_filter = {"$or": [{"_id": slot_oid}, {"_id": slot_id}]} if slot_oid else {"_id": slot_id}
 
-    # Direct atomic writes
-    slot.status = SlotStatus.BOOKED
-    await slot.save()
+    filter_cond = {
+        "$and": [
+            id_filter,
+            {"status": SlotStatus.HELD.value, "held_by": user_id},
+        ]
+    }
+    update_doc = {
+        "$set": {
+            "status": SlotStatus.BOOKED.value,
+            "appointment_id": str(appointment.id),
+        }
+    }
+    updated_slot = await slot_collection.find_one_and_update(filter_cond, update_doc)
+    if not updated_slot:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Slot reservation could not be confirmed. It may have expired or been modified.",
+        )
+
     await appointment.insert()
-    slot.appointment_id = str(appointment.id)
-    await slot.save()
-
     return appointment
 
 

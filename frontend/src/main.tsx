@@ -4,6 +4,10 @@ import { RouterProvider } from 'react-router-dom';
 import { router } from './routes';
 import './styles/theme.css';
 import './index.css';
+import { useAuthStore } from './store/authStore';
+
+// Restore authenticated session on application mount
+useAuthStore.getState().restoreSession();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

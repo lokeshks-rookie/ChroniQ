@@ -110,33 +110,73 @@ async def generate_slots_for_doctor(doctor_id: str, days: int = 14) -> int:
 
 async def hold_slot(slot_id: str, user_id: str) -> Optional[Slot]:
     """Atomically hold a slot for 5 minutes. Free or expired slots can be held."""
+    from bson import ObjectId
+    from pymongo import ReturnDocument
+
     settings = get_settings()
     now = utcnow()
     hold_until = now + timedelta(minutes=settings.SLOT_HOLD_MINUTES)
 
-    slot = await Slot.get(slot_id)
-    if not slot:
+    slot_oid = ObjectId(slot_id) if ObjectId.is_valid(slot_id) else None
+    id_filter = {"$or": [{"_id": slot_oid}, {"_id": slot_id}]} if slot_oid else {"_id": slot_id}
+
+    # Atomic condition: slot is OPEN, expired HELD, or re-held by same user
+    filter_condition = {
+        "$and": [
+            id_filter,
+            {
+                "$or": [
+                    {"status": SlotStatus.OPEN.value},
+                    {"status": SlotStatus.HELD.value, "held_until": {"$lt": now}},
+                    {"status": SlotStatus.HELD.value, "held_by": user_id},
+                ]
+            },
+        ]
+    }
+    update_doc = {
+        "$set": {
+            "status": SlotStatus.HELD.value,
+            "held_by": user_id,
+            "held_until": hold_until,
+        }
+    }
+
+    collection = Slot.get_pymongo_collection()
+    updated_raw = await collection.find_one_and_update(
+        filter_condition,
+        update_doc,
+        return_document=ReturnDocument.AFTER,
+    )
+
+    if not updated_raw:
         return None
 
-    held_until_dt = slot.held_until
-    if held_until_dt and held_until_dt.tzinfo is None:
-        held_until_dt = held_until_dt.replace(tzinfo=timezone.utc)
+    return await Slot.get(slot_id)
 
-    # Slot must be open or expired hold
-    if slot.status == SlotStatus.OPEN or (slot.status == SlotStatus.HELD and held_until_dt and held_until_dt < now):
-        slot.status = SlotStatus.HELD
-        slot.held_by = user_id
-        slot.held_until = hold_until
-        await slot.save()
-        return slot
 
-    # If already held by the same user and not expired
-    if slot.status == SlotStatus.HELD and slot.held_by == user_id and held_until_dt and held_until_dt >= now:
-        slot.held_until = hold_until
-        await slot.save()
-        return slot
+async def release_slot(slot_id: str, user_id: str) -> bool:
+    """Release a held slot back to OPEN if held by this user."""
+    from bson import ObjectId
 
-    return None
+    slot_oid = ObjectId(slot_id) if ObjectId.is_valid(slot_id) else None
+    id_filter = {"$or": [{"_id": slot_oid}, {"_id": slot_id}]} if slot_oid else {"_id": slot_id}
+
+    filter_condition = {
+        "$and": [
+            id_filter,
+            {"status": SlotStatus.HELD.value, "held_by": user_id},
+        ]
+    }
+    update_doc = {
+        "$set": {
+            "status": SlotStatus.OPEN.value,
+            "held_by": None,
+            "held_until": None,
+        }
+    }
+    collection = Slot.get_pymongo_collection()
+    res = await collection.find_one_and_update(filter_condition, update_doc)
+    return res is not None
 
 
 async def release_expired_holds() -> int:

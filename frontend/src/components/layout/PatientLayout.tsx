@@ -79,6 +79,7 @@ export const PatientLayout: React.FC = () => {
   const navigate = useNavigate();
   const { currentRole, setRole } = useAuthStore();
   const patient = usePatientStore((s) => s.patient);
+  const fetchPatientData = usePatientStore((s) => s.fetchPatientData);
 
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [roleSwitcherOpen, setRoleSwitcherOpen] = useState(false);
@@ -86,6 +87,11 @@ export const PatientLayout: React.FC = () => {
 
   const pageTitle = getPageTitle(location.pathname);
   const isSubPage = !['/app', '/app/search', '/app/appointments', '/app/notifications', '/app/profile'].includes(location.pathname);
+
+  // Fetch live patient data from backend
+  useEffect(() => {
+    fetchPatientData();
+  }, [fetchPatientData]);
 
   // Close menus on route change
   useEffect(() => {

@@ -41,8 +41,11 @@ import { getTodayDateStringIST } from '@/lib/time';
 import { useUiStore } from './uiStore';
 import { useAuthStore } from './authStore';
 import { syncManager } from '@/lib/sync';
+import { discoveryApi, adminPortalApi, queueApi, bookingApi } from '@/services/api';
 
 interface HospitalState {
+  isLoadingBackend: boolean;
+  fetchHospitalData: (hospitalId?: string) => Promise<void>;
   hospital: Hospital;
   departments: Department[];
   doctors: Doctor[];
@@ -208,6 +211,50 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
   consultation_notes: INITIAL_CONSULTATION_NOTES,
   call_events: [],
   heartbeat_at: new Date().toISOString(),
+  isLoadingBackend: false,
+
+  fetchHospitalData: async (hospitalId?: string) => {
+    const authState = useAuthStore.getState();
+    const effectiveHospId = hospitalId || authState.user?.hospital_id || 'hosp_city_01';
+    set({ isLoadingBackend: true });
+    try {
+      const [hospRes, deptsRes, docsRes, apptsRes, qRes] = await Promise.allSettled([
+        discoveryApi.getHospital(effectiveHospId),
+        discoveryApi.getHospitalDepartments(effectiveHospId),
+        discoveryApi.getDoctors({ hospital_id: effectiveHospId }),
+        bookingApi.getAppointments({ hospital_id: effectiveHospId }),
+        queueApi.getHospitalQueue(effectiveHospId),
+      ]);
+
+      const updates: Partial<HospitalState> = {};
+
+      if (hospRes.status === 'fulfilled' && hospRes.value.data) {
+        updates.hospital = {
+          ...get().hospital,
+          ...hospRes.value.data,
+          id: hospRes.value.data.id || effectiveHospId,
+        };
+      }
+      if (deptsRes.status === 'fulfilled' && Array.isArray(deptsRes.value.data) && deptsRes.value.data.length > 0) {
+        updates.departments = deptsRes.value.data;
+      }
+      if (docsRes.status === 'fulfilled' && Array.isArray(docsRes.value.data) && docsRes.value.data.length > 0) {
+        updates.doctors = docsRes.value.data;
+      }
+      if (apptsRes.status === 'fulfilled' && Array.isArray(apptsRes.value.data)) {
+        updates.appointments = apptsRes.value.data;
+      }
+      if (qRes.status === 'fulfilled' && Array.isArray(qRes.value.data)) {
+        updates.queue_entries = qRes.value.data;
+      }
+
+      set(updates);
+    } catch (err) {
+      console.error('Failed to fetch hospital data from backend:', err);
+    } finally {
+      set({ isLoadingBackend: false });
+    }
+  },
 
   updateHeartbeat: () => {
     set({ heartbeat_at: new Date().toISOString() });
@@ -480,6 +527,8 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
       variant: 'default',
     });
 
+    queueApi.callNext(doctorId, doc.room || undefined).catch((e) => console.warn('callNext sync error:', e));
+
     return { success: true };
   },
 
@@ -525,6 +574,8 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
       description: `Turn reminder announced for token ${calledEntry.token}.`,
       variant: 'default',
     });
+
+    queueApi.callAgain(doctorId, doc?.room || undefined).catch((e) => console.warn('callAgain sync error:', e));
 
     return { success: true };
   },
@@ -574,6 +625,8 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
       description: `Token ${calledEntry.token} is now in consultation.`,
       variant: 'default',
     });
+
+    queueApi.startConsultation(doctorId).catch((e) => console.warn('startConsultation sync error:', e));
 
     return { success: true };
   },
@@ -698,6 +751,8 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
       description: `Token ${activeEntry.token} completed (${actualDuration}m). Doctor avg updated to ${newRollingAvg}m.`,
       variant: 'success',
     });
+
+    queueApi.completeConsultation(doctorId, Math.round(actualDuration)).catch((e) => console.warn('completeConsultation sync error:', e));
 
     return { success: true, consultMinutes: actualDuration };
   },
@@ -893,6 +948,8 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
       variant: 'default',
     });
 
+    queueApi.skipQueueEntry(entryId).catch((e) => console.warn('skipQueueEntry sync error:', e));
+
     return { success: true };
   },
 
@@ -945,6 +1002,8 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
       variant: 'danger',
     });
 
+    queueApi.markNoShow(entryId).catch((e) => console.warn('markNoShow sync error:', e));
+
     return { success: true };
   },
 
@@ -976,6 +1035,8 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
       description: `Token ${entry.token} is now ${newPriority === 1 ? 'Priority (elderly/pregnant/critical)' : 'Normal priority'}.`,
       variant: 'default',
     });
+
+    queueApi.setPriority(entryId, newPriority).catch((e) => console.warn('moveToPriority sync error:', e));
 
     return { success: true };
   },
@@ -1231,6 +1292,8 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
     syncManager.broadcastSnapshot();
 
     get().logAuditAction('CHECK_IN', `Checked in ${apt.patient.name}, assigned token ${token}`);
+
+    queueApi.checkIn({ appointment_id: appointmentId }).catch((e) => console.warn('checkInAppointment sync error:', e));
 
     return {
       success: true,

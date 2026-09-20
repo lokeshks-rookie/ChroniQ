@@ -42,6 +42,7 @@ export const AdminLayout: React.FC = () => {
     toggleSimulation,
     resetDemoData,
     tickSimulation,
+    fetchHospitalData,
   } = useHospitalStore();
   const { alerts, liveAnnouncement, addToast } = useUiStore();
 
@@ -91,6 +92,11 @@ export const AdminLayout: React.FC = () => {
   const unreadAlerts = alerts.filter(
     (a) => !a.dismissed && (currentRole !== 'doctor' || !a.doctor_id || a.doctor_id === currentDoctor?.id)
   );
+
+  // Fetch live hospital data from backend on mount and role change
+  useEffect(() => {
+    fetchHospitalData();
+  }, [currentRole]);
 
   // Ticker for clock and simulated queue movements
   useEffect(() => {

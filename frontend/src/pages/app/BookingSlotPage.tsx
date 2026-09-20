@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Clock, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getDoctorById, getHospitalById, getSlots14Day, mockHoldSlot, mockReleaseSlot, type SlotGridDay, type BookingSlot } from '@/data/mockData';
+import { getDoctorById, getHospitalById, getSlots14Day, mockHoldSlot, mockReleaseSlot, type SlotGridDay, type BookingSlot, type SlotState } from '@/data/mockData';
 import { useBookingStore } from '@/store/bookingStore';
+import { bookingApi } from '@/services/api';
 
 function formatCountdown(ms: number): string {
   if (ms <= 0) return '0:00';
@@ -27,12 +28,56 @@ export default function BookingSlotPage() {
   const [countdown, setCountdown] = useState('');
   const [isHolding, setIsHolding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [realSlots, setRealSlots] = useState<BookingSlot[] | null>(null);
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const dateStripRef = useRef<HTMLDivElement>(null);
 
   // Initialize booking store on mount
   useEffect(() => {
     if (doctor) store.initBooking(doctor);
   }, [doctorId]);
+
+  // Query real slots from backend
+  useEffect(() => {
+    if (!doctorId) return;
+    const targetDate = slotDays[selectedDayIdx]?.date;
+    if (!targetDate) return;
+
+    let active = true;
+    setLoadingSlots(true);
+    bookingApi
+      .getAvailableSlots(doctorId, targetDate)
+      .then((res) => {
+        if (!active) return;
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          const mapped: BookingSlot[] = res.data.map((s: any) => {
+            const startObj = new Date(s.start);
+            const timeStr = startObj.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+            let state: SlotState = 'available';
+            if (s.status === 'held') state = 'held';
+            else if (s.status === 'booked' || s.status === 'blocked') state = 'booked';
+            return {
+              id: s.id,
+              time: timeStr,
+              state,
+            };
+          });
+          setRealSlots(mapped);
+        } else {
+          setRealSlots(null);
+        }
+      })
+      .catch(() => {
+        if (active) setRealSlots(null);
+      })
+      .finally(() => {
+        if (active) setLoadingSlots(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [doctorId, selectedDayIdx]);
 
   // Countdown timer
   useEffect(() => {
@@ -62,7 +107,8 @@ export default function BookingSlotPage() {
   }
 
   const currentDay: SlotGridDay = slotDays[selectedDayIdx];
-  const availableOnDay = currentDay?.slots.filter((s) => s.state === 'available').length || 0;
+  const displayedSlots: BookingSlot[] = realSlots || currentDay?.slots || [];
+  const availableOnDay = displayedSlots.filter((s) => s.state === 'available').length;
 
   const handleSelectSlot = async (slot: BookingSlot) => {
     if (slot.state !== 'available' || isHolding) return;
@@ -207,11 +253,13 @@ export default function BookingSlotPage() {
           </div>
         </div>
 
-        {currentDay?.slots.length === 0 ? (
-          <p style={{ padding: '32px', textAlign: 'center', color: 'var(--color-muted)', fontSize: '14px' }}>No slots on this day.</p>
+        {displayedSlots.length === 0 ? (
+          <p style={{ padding: '32px', textAlign: 'center', color: 'var(--color-muted)', fontSize: '14px' }}>
+            {loadingSlots ? 'Loading slots...' : 'No slots on this day.'}
+          </p>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '8px' }}>
-            {currentDay?.slots.map((slot) => {
+            {displayedSlots.map((slot) => {
               const isSelected = slot.id === selectedSlotId;
               const styles = isSelected
                 ? { bg: 'var(--color-ink)', border: 'var(--color-ink)', color: 'var(--color-base)' }

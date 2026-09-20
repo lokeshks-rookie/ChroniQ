@@ -47,6 +47,7 @@ def _to_user_response(user: User) -> UserResponse:
         email=user.email,
         role=user.role,
         hospital_id=user.hospital_id,
+        linked_doctor_id=getattr(user, "linked_doctor_id", None),
         preferred_language=user.preferred_language,
         is_verified=user.is_verified,
         is_active=user.is_active,
@@ -86,13 +87,20 @@ async def register(req: RegisterRequest):
                 detail="An account with this email address already exists.",
             )
 
+    # Prevent privilege escalation: public self-registration is strictly for patients
+    if req.role and req.role != Role.PATIENT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Self-registration is restricted to patient accounts. Staff and administrator accounts must be provisioned by an administrator.",
+        )
+
     user = User(
         name=req.name,
         phone=req.phone,
         email=req.email,
         password_hash=hash_password(req.password),
-        role=req.role or Role.PATIENT,
-        hospital_id=req.hospital_id,
+        role=Role.PATIENT,
+        hospital_id=None,
         preferred_language=req.preferred_language or "en",
         is_verified=False,
     )

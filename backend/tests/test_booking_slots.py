@@ -23,7 +23,7 @@ async def test_slot_hold_requires_authentication(async_client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_slot_hold_and_double_booking_prevention(async_client: AsyncClient, test_patient_token: str):
+async def test_slot_hold_and_double_booking_prevention(async_client: AsyncClient, test_patient_token: str, test_other_patient_token: str):
     """Holding an already held or booked slot must return HTTP 409 Conflict."""
     from app.models.scheduling import Slot
     from app.models.common import SlotStatus, utcnow
@@ -48,8 +48,7 @@ async def test_slot_hold_and_double_booking_prevention(async_client: AsyncClient
     assert data1["slot_id"] == str(slot.id)
 
     # 2. Second user attempts to hold the same slot -> 409 Conflict
-    other_token = test_patient_token  # or another patient
-    resp2 = await async_client.post(f"/slots/{str(slot.id)}/hold", headers={"Authorization": f"Bearer {other_token}"})
+    resp2 = await async_client.post(f"/slots/{str(slot.id)}/hold", headers={"Authorization": f"Bearer {test_other_patient_token}"})
     assert resp2.status_code == 409
     assert "no longer available" in resp2.json()["detail"].lower()
 

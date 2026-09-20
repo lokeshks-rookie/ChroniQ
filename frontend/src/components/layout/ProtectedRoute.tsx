@@ -1,4 +1,5 @@
 import React from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
 import type { Capability, Role } from '@/types';
 import { useAuthStore } from '@/store/authStore';
 import { AccessDenied } from './AccessDenied';
@@ -14,7 +15,12 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   allowedRoles,
   children,
 }) => {
-  const { currentRole, hasCapability } = useAuthStore();
+  const { isAuthenticated, user, currentRole, hasCapability } = useAuthStore();
+  const location = useLocation();
+
+  if (!isAuthenticated || !user) {
+    return <Navigate to={`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`} replace />;
+  }
 
   // Role whitelist check (e.g. only doctor role for /doctor routes)
   if (allowedRoles && !allowedRoles.includes(currentRole)) {

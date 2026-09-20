@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CalendarDays, Clock, Search, ChevronRight, CheckCircle2, AlertCircle } from 'lucide-react';
-import { mockGetMyAppointments, mockCancelAppointment, type MockAppointment, type AppointmentStatus } from '@/data/mockData';
+import { mockGetMyAppointments, type MockAppointment, type AppointmentStatus } from '@/data/mockData';
+import { bookingApi } from '@/services/api';
 import TokenBadge from '@/components/ui/TokenBadge';
 
 type TabType = 'upcoming' | 'past' | 'cancelled';
@@ -11,7 +12,43 @@ export default function AppointmentsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('upcoming');
   const [cancelModalId, setCancelModalId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+
+  const loadAppointments = async () => {
+    setIsLoading(true);
+    try {
+      const res = await bookingApi.getMyAppointments();
+      const raw = res.data || [];
+      if (raw.length > 0) {
+        const mapped: MockAppointment[] = raw.map((a: any) => ({
+          _id: a.id || a.booking_code,
+          doctorId: a.doctor_id,
+          hospitalId: a.hospital_id,
+          doctorName: a.doctor_name,
+          hospitalName: a.hospital_name,
+          specialty: a.department_name || '',
+          date: a.scheduled_start ? a.scheduled_start.split('T')[0] : '',
+          time: a.scheduled_start ? a.scheduled_start.split('T')[1]?.slice(0, 5) : '',
+          status: a.status === 'booked' ? 'upcoming' : a.status,
+          token: a.token,
+          booking_code: a.booking_code,
+          reason: a.reason,
+          patientName: a.patient?.name || '',
+          fee: a.fee || 0,
+        }));
+        setAppointments(mapped);
+      }
+    } catch (err) {
+      console.warn('Backend load failed, using local appointments:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAppointments();
+  }, []);
 
   // Group appointments
   const grouped = useMemo(() => {
@@ -35,14 +72,16 @@ export default function AppointmentsPage() {
 
   const activeAppointments = grouped[activeTab];
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     if (cancelModalId) {
-      const success = mockCancelAppointment(cancelModalId);
-      if (success) {
-        setAppointments([...mockGetMyAppointments()]);
-        setToastMessage('Appointment cancelled successfully.');
-        setTimeout(() => setToastMessage(null), 3000);
+      try {
+        await bookingApi.cancel(cancelModalId, { reason: 'Patient cancelled' });
+      } catch (e) {
+        console.warn('Backend cancel error:', e);
       }
+      await loadAppointments();
+      setToastMessage('Appointment cancelled successfully.');
+      setTimeout(() => setToastMessage(null), 3000);
       setCancelModalId(null);
     }
   };

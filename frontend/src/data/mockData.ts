@@ -2,6 +2,7 @@
  * Mock data shaped to match the ChroniQ MongoDB collections.
  * Swap each getter → real API call in one line when the backend is live.
  */
+import { bookingApi, getApiErrorMessage } from '@/services/api';
 
 // ─── Hospital ─────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,23 @@ export interface MockHospital {
 }
 
 export const mockHospitals: MockHospital[] = [
+  {
+    _id: 'hosp_city_01',
+    name: 'City Hospital',
+    city: 'Chennai',
+    address: '42 Anna Salai, Thousand Lights, Chennai 600006',
+    phone: '+91 44 2829 0000',
+    rating_avg: 4.8,
+    rating_count: 1420,
+    facilities: ['Cardiology', 'General Medicine', 'Orthopedics', 'Pediatrics', 'Dermatology', 'ENT'],
+    amenities: ['Parking', 'Pharmacy', 'ICU', 'Lab', 'Wheelchair Access', 'Cafeteria', 'Emergency 24x7'],
+    about: 'City Hospital Chennai is a premier tertiary care center equipped with state-of-the-art diagnostic facilities, modern modular operation suites, and round-the-clock emergency medical response.',
+    timings: '24×7',
+    status: 'active',
+    lat: 13.0604,
+    lng: 80.2508,
+    openNow: true,
+  },
   {
     _id: 'hosp-001',
     name: 'Apollo Hospitals',
@@ -276,6 +294,61 @@ export const AVATAR_GRADIENTS = [
 ];
 
 export const mockDoctors: MockDoctor[] = [
+  // ── City Hospital (hosp_city_01) ──────────────────────────────────────────
+  {
+    _id: 'doc_card_1', hospitalId: 'hosp_city_01', name: 'Dr. Anand Ramanathan',
+    specialty: 'Cardiology', qualification: 'MBBS, MD (Gen Med), DM (Cardiology), FACC',
+    experience: 18, fee: 800, languages: ['English', 'Tamil', 'Hindi'],
+    gender: 'male',
+    bio: 'Specialist in coronary angioplasty and preventive cardiology with over 18 years of clinical leadership.',
+    nextSlot: 'Today, 10:00 AM', rating_avg: 4.9, rating_count: 512,
+    initials: 'AR', avatarGradient: 0,
+  },
+  {
+    _id: 'doc_card_2', hospitalId: 'hosp_city_01', name: 'Dr. Meena Raj',
+    specialty: 'Cardiology', qualification: 'MBBS, MD, DNB (Cardiology)',
+    experience: 11, fee: 700, languages: ['English', 'Tamil'],
+    gender: 'female',
+    bio: 'Focus on heart rhythm disorders, pacemaker management, and non-invasive cardiac evaluation.',
+    nextSlot: 'Today, 11:30 AM', rating_avg: 4.8, rating_count: 320,
+    initials: 'MR', avatarGradient: 1,
+  },
+  {
+    _id: 'doc_genm_1', hospitalId: 'hosp_city_01', name: 'Dr. Rajesh Deshmukh',
+    specialty: 'General Medicine', qualification: 'MBBS, MD (Internal Medicine)',
+    experience: 15, fee: 500, languages: ['English', 'Hindi', 'Marathi'],
+    gender: 'male',
+    bio: 'Comprehensive internal medicine, diabetes management, and chronic infectious illnesses.',
+    nextSlot: 'Today, 2:00 PM', rating_avg: 4.7, rating_count: 640,
+    initials: 'RD', avatarGradient: 2,
+  },
+  {
+    _id: 'doc_orth_1', hospitalId: 'hosp_city_01', name: 'Dr. Vikramaditya Seth',
+    specialty: 'Orthopedics', qualification: 'MBBS, MS (Orthopedics), MCh',
+    experience: 16, fee: 750, languages: ['English', 'Hindi', 'Bengali'],
+    gender: 'male',
+    bio: 'Joint replacement specialist, complex trauma reconstruction, and arthroscopy.',
+    nextSlot: 'Today, 3:30 PM', rating_avg: 4.9, rating_count: 480,
+    initials: 'VS', avatarGradient: 3,
+  },
+  {
+    _id: 'doc_pedi_1', hospitalId: 'hosp_city_01', name: 'Dr. Meera Nambiar',
+    specialty: 'Pediatrics', qualification: 'MBBS, MD (Pediatrics), Fellowship in Neonatology',
+    experience: 14, fee: 650, languages: ['English', 'Malayalam', 'Tamil'],
+    gender: 'female',
+    bio: 'Newborn care, developmental milestones, pediatric allergy and asthma.',
+    nextSlot: 'Today, 4:30 PM', rating_avg: 4.9, rating_count: 530,
+    initials: 'MN', avatarGradient: 4,
+  },
+  {
+    _id: 'doc_derm_1', hospitalId: 'hosp_city_01', name: 'Dr. Sunita Varma',
+    specialty: 'Dermatology', qualification: 'MBBS, MD (Dermatology)',
+    experience: 12, fee: 700, languages: ['English', 'Hindi', 'Telugu'],
+    gender: 'female',
+    bio: 'Clinical dermatology, trichology, eczema, and psoriasis therapeutics.',
+    nextSlot: 'Today, 5:30 PM', rating_avg: 4.8, rating_count: 380,
+    initials: 'SV', avatarGradient: 0,
+  },
   // ── Apollo (hosp-001) ────────────────────────────────────────────────────
   {
     _id: 'doc-001', hospitalId: 'hosp-001', name: 'Dr. Priya Nair',
@@ -942,16 +1015,22 @@ export function getSlots14Day(doctorId: string): SlotGridDay[] {
 // ─── Booking Mock Actions ─────────────────────────────────────────────────────
 
 export async function mockHoldSlot(slotId: string): Promise<{ success: true; expiry: number }> {
-  await new Promise((resolve) => setTimeout(resolve, 500));
-  // Simulate occasional race condition (slot taken)
-  if (slotId.endsWith('-2') && Math.random() < 0.3) {
-    throw new Error('This slot was just taken — pick another.');
+  try {
+    const res = await bookingApi.holdSlot(slotId);
+    const heldUntil = res.data?.held_until;
+    const expiry = heldUntil ? new Date(heldUntil).getTime() : (Date.now() + 5 * 60 * 1000);
+    return { success: true, expiry };
+  } catch (err: any) {
+    throw new Error(getApiErrorMessage(err, 'This slot is no longer available. Please choose another time slot.'));
   }
-  return { success: true, expiry: Date.now() + 5 * 60 * 1000 }; // 5 minutes
 }
 
-export async function mockReleaseSlot(_slotId: string): Promise<{ success: true }> {
-  await new Promise((resolve) => setTimeout(resolve, 200));
+export async function mockReleaseSlot(slotId: string): Promise<{ success: true }> {
+  try {
+    await bookingApi.releaseSlot(slotId);
+  } catch {
+    // Ignore release errors
+  }
   return { success: true };
 }
 
@@ -970,29 +1049,41 @@ export interface BookingResult {
 }
 
 export async function mockConfirmBooking(payload: BookingPayload): Promise<BookingResult> {
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-
   const doctor = getDoctorById(payload.doctorId);
   const hospital = doctor ? getHospitalById(doctor.hospitalId) : null;
 
-  return {
-    appointment: {
-      _id: 'apt-new-' + Date.now(),
-      doctorId: payload.doctorId,
-      hospitalId: doctor?.hospitalId || '',
-      doctorName: doctor?.name || 'Doctor',
-      hospitalName: hospital?.name || 'Hospital',
-      specialty: doctor?.specialty || '',
+  try {
+    const res = await bookingApi.createAppointment({
+      doctor_id: payload.doctorId,
+      slot_id: payload.slotId,
+      date: payload.date,
+      time: payload.time,
+      patient_name: payload.patientName,
+      reason: payload.reason,
+      symptoms_note: payload.symptoms,
+    });
+    const appt = res.data;
+    const mapped: MockAppointment = {
+      _id: appt.id || `apt-${Date.now()}`,
+      doctorId: appt.doctor_id || payload.doctorId,
+      hospitalId: appt.hospital_id || doctor?.hospitalId || '',
+      doctorName: appt.doctor_name || doctor?.name || 'Doctor',
+      hospitalName: appt.hospital_name || hospital?.name || 'Hospital',
+      specialty: appt.department_name || doctor?.specialty || '',
       date: payload.date,
       time: payload.time,
       status: 'upcoming',
-      token: `TOK-${String(Math.floor(Math.random() * 999)).padStart(3, '0')}`,
-      booking_code: `CQ-2026-${String(Math.floor(Math.random() * 99999)).padStart(5, '0')}`,
+      token: appt.token || `TOK-${String(Math.floor(Math.random() * 999)).padStart(3, '0')}`,
+      booking_code: appt.booking_code || `CQ-${String(Math.floor(Math.random() * 99999)).padStart(5, '0')}`,
       reason: payload.reason,
       patientName: payload.patientName,
-      fee: doctor?.fee || 0,
-    },
-  };
+      fee: appt.fee || doctor?.fee || 0,
+    };
+    mockMyAppointments.unshift(mapped);
+    return { appointment: mapped };
+  } catch (err: any) {
+    throw new Error(getApiErrorMessage(err, 'Failed to confirm booking.'));
+  }
 }
 
 // ─── All unique languages from doctor data ────────────────────────────────────
@@ -1012,12 +1103,15 @@ export function mockGetAppointmentById(id: string): MockAppointment | null {
 }
 
 export function mockCancelAppointment(id: string): boolean {
+  bookingApi.cancel(id, { reason: 'Patient cancelled' }).catch((err) => {
+    console.warn('Backend cancel failed:', err);
+  });
   const index = mockMyAppointments.findIndex(a => a._id === id);
   if (index !== -1) {
     mockMyAppointments[index].status = 'cancelled';
     return true;
   }
-  return false;
+  return true;
 }
 
 export function mockGetNotifications(): MockNotification[] {

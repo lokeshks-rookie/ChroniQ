@@ -1,10 +1,10 @@
 """Appointments router."""
 from datetime import datetime
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, require_roles
 from app.models.accounts import User
 from app.models.booking import Appointment, StatusEvent
 from app.models.common import AppointmentStatus, CreatedVia, Role, SlotStatus, utcnow
@@ -75,13 +75,41 @@ async def create_appointment(
     return to_appointment_response(apt)
 
 
+@router.get("", response_model=List[dict])
 @router.get("/me", response_model=List[dict])
 async def get_my_appointments(
+    request: Request,
+    hospital_id: Optional[str] = Query(None),
+    doctor_id: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
 ):
-    """Get appointments for the logged-in patient."""
-    user_id = str(current_user.id)
-    appointments = await Appointment.find(Appointment.patient_id == user_id).sort("-scheduled_start").to_list()
+    """Get appointments scoped to caller's role and hospital."""
+    is_me = request.url.path.endswith("/me")
+    if is_me or current_user.role == Role.PATIENT:
+        user_id = str(current_user.id)
+        appointments = await Appointment.find(Appointment.patient_id == user_id).sort("-scheduled_start").to_list()
+        return [to_appointment_response(a) for a in appointments]
+
+    # Staff view (Hospital Admin, Receptionist, Doctor, Super Admin)
+    filters = {}
+    if current_user.role in (Role.HOSPITAL_ADMIN, Role.RECEPTIONIST):
+        effective_hosp = current_user.hospital_id or hospital_id or "hosp_city_01"
+        filters["hospital_id"] = effective_hosp
+    elif current_user.role == Role.DOCTOR:
+        doc_id = current_user.linked_doctor_id or str(current_user.id)
+        filters["doctor_id"] = doc_id
+    elif current_user.role == Role.SUPER_ADMIN:
+        if hospital_id:
+            filters["hospital_id"] = hospital_id
+
+    if doctor_id:
+        filters["doctor_id"] = doctor_id
+    if status:
+        filters["status"] = status
+
+    query = Appointment.find(filters).sort("-scheduled_start")
+    appointments = await query.to_list()
     return [to_appointment_response(a) for a in appointments]
 
 
@@ -124,6 +152,10 @@ async def reschedule_appointment(
     if current_user.role == Role.PATIENT and apt.patient_id != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access forbidden")
 
+    if current_user.role in (Role.HOSPITAL_ADMIN, Role.RECEPTIONIST, Role.DOCTOR):
+        if current_user.hospital_id and apt.hospital_id != current_user.hospital_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hospital mismatch: Cannot reschedule appointment of another hospital")
+
     # Free old slot if any
     if apt.slot_id:
         old_slot = await Slot.get(apt.slot_id)
@@ -139,6 +171,8 @@ async def reschedule_appointment(
         new_slot = await Slot.get(payload.new_slot_id)
         if not new_slot:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="New slot not found")
+        if new_slot.status not in (SlotStatus.OPEN, SlotStatus.HELD):
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="New slot is already booked")
         new_slot.status = SlotStatus.BOOKED
         new_slot.appointment_id = str(apt.id)
         await new_slot.save()
@@ -165,6 +199,7 @@ async def reschedule_appointment(
 
 
 @router.delete("/{id}", response_model=dict)
+@router.post("/{id}/cancel", response_model=dict)
 async def cancel_apt(
     id: str,
     payload: Optional[CancelBody] = None,
@@ -179,6 +214,10 @@ async def cancel_apt(
     if current_user.role == Role.PATIENT and apt.patient_id != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access forbidden")
 
+    if current_user.role in (Role.HOSPITAL_ADMIN, Role.RECEPTIONIST, Role.DOCTOR):
+        if current_user.hospital_id and apt.hospital_id != current_user.hospital_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hospital mismatch: Cannot cancel appointment of another hospital")
+
     reason = payload.reason if payload else "Cancelled"
     cancelled = await cancel_appointment(appointment_id=str(apt.id), user_id=user_id, reason=reason)
     return to_appointment_response(cancelled)
@@ -187,12 +226,16 @@ async def cancel_apt(
 @router.post("/{id}/confirm", response_model=dict)
 async def confirm_appointment_desk(
     id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles(Role.RECEPTIONIST, Role.HOSPITAL_ADMIN, Role.SUPER_ADMIN)),
 ):
     """Front-desk mark confirmation on appointment."""
     apt = await Appointment.get(id)
     if not apt:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Appointment not found")
+
+    if current_user.role in (Role.HOSPITAL_ADMIN, Role.RECEPTIONIST):
+        if current_user.hospital_id and apt.hospital_id != current_user.hospital_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hospital mismatch: Cannot confirm appointment of another hospital")
 
     apt.desk_confirmed = True
     apt.updated_at = utcnow()

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { CalendarDays, Clock, MapPin, CheckCircle2, FileText, IndianRupee, AlertCircle } from 'lucide-react';
-import { mockGetAppointmentById, mockCancelAppointment, MockAppointment, AppointmentStatus } from '@/data/mockData';
+import { mockGetAppointmentById, MockAppointment, AppointmentStatus } from '@/data/mockData';
+import { bookingApi } from '@/services/api';
 import TokenBadge from '@/components/ui/TokenBadge';
 import ErrorPage from '@/components/ui/ErrorPage';
 
@@ -12,23 +13,55 @@ export default function AppointmentDetailPage() {
   const [loading, setLoading] = useState(true);
   const [cancelModalId, setCancelModalId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (id) {
-      const apt = mockGetAppointmentById(id);
-      setAppointment(apt);
+  const loadAppointment = async () => {
+    if (!id) return;
+    setLoading(true);
+    try {
+      const res = await bookingApi.getAppointment(id);
+      const a = res.data;
+      if (a) {
+        setAppointment({
+          _id: a.id || a.booking_code,
+          doctorId: a.doctor_id,
+          hospitalId: a.hospital_id,
+          doctorName: a.doctor_name,
+          hospitalName: a.hospital_name,
+          specialty: a.department_name || '',
+          date: a.scheduled_start ? a.scheduled_start.split('T')[0] : '',
+          time: a.scheduled_start ? a.scheduled_start.split('T')[1]?.slice(0, 5) : '',
+          status: a.status === 'booked' ? 'upcoming' : a.status,
+          token: a.token,
+          booking_code: a.booking_code,
+          reason: a.reason,
+          patientName: a.patient?.name || '',
+          fee: a.fee || 0,
+        });
+        setLoading(false);
+        return;
+      }
+    } catch {
+      // fallback to local lookup
     }
+    const apt = mockGetAppointmentById(id);
+    setAppointment(apt);
     setLoading(false);
+  };
+
+  useEffect(() => {
+    loadAppointment();
   }, [id]);
 
   if (loading) return null;
   if (!appointment) return <ErrorPage code={404} />;
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     if (cancelModalId) {
-      const success = mockCancelAppointment(cancelModalId);
-      if (success) {
-        setAppointment(mockGetAppointmentById(cancelModalId));
+      try {
+        await bookingApi.cancel(cancelModalId, { reason: 'Patient cancelled' });
+      } catch (e) {
+        console.warn('Backend cancel error:', e);
       }
+      await loadAppointment();
       setCancelModalId(null);
     }
   };

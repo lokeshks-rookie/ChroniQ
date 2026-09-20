@@ -46,24 +46,15 @@ async def resolve_doctor_id(current_user: User, requested_id: Optional[str] = No
     if requested_id:
         return requested_id
 
+    if current_user.linked_doctor_id:
+        return current_user.linked_doctor_id
+
     # If current user is doctor, look up their doctor record
-    doc = await Doctor.find_one(Doctor.custom_id == str(current_user.id))
+    doc = await Doctor.find_one(Doctor.user_id == str(current_user.id))
     if not doc:
-        # Check by email or name
-        doc = await Doctor.find_one(Doctor.email == current_user.email)
+        doc = await Doctor.find_one(Doctor.custom_id == str(current_user.id))
     if doc:
         return doc.custom_id or str(doc.id)
-
-    # If first doctor in current user's hospital
-    if current_user.hospital_id:
-        first_doc = await Doctor.find_one(Doctor.hospital_id == current_user.hospital_id)
-        if first_doc:
-            return first_doc.custom_id or str(first_doc.id)
-
-    # Fallback to any doctor
-    any_doc = await Doctor.first_or_none()
-    if any_doc:
-        return any_doc.custom_id or str(any_doc.id)
 
     return str(current_user.id)
 

@@ -53,7 +53,6 @@ async def onboard_hospital(
     hospital = Hospital(
         custom_id=custom_id,
         name=payload.name,
-        code=code,
         city=payload.city,
         address=payload.address,
         phone=payload.phone,
@@ -85,6 +84,7 @@ async def update_hospital_status(
 
 
 @router.get("/analytics")
+@router.get("/analytics/overview")
 async def platform_analytics(
     current_user: User = Depends(require_roles(Role.SUPER_ADMIN)),
 ):

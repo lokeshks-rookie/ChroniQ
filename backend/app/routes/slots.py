@@ -1,6 +1,6 @@
 """Doctor Slots and Slot Hold Routes."""
 from datetime import datetime, time, timedelta, timezone
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.config import get_settings
@@ -85,3 +85,24 @@ async def hold_slot_endpoint(
         held_until=held_dt,
         expires_in_seconds=remaining_seconds,
     )
+
+
+@router.post("/slots/{id}/release")
+async def release_slot_endpoint(
+    id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Release a held slot back to available state."""
+    from app.services.slot_service import release_slot
+    ok = await release_slot(slot_id=id, user_id=str(current_user.id))
+    return {"success": ok, "slot_id": id}
+
+
+@router.get("/slots/available", response_model=List[SlotResponse])
+async def get_available_slots(
+    doctor_id: str = Query(..., description="Doctor ID"),
+    date: Optional[str] = Query(None, description="Date in YYYY-MM-DD format (defaults to today)"),
+):
+    """Query available slots for a doctor on a given date."""
+    target_date_str = date or utcnow().strftime("%Y-%m-%d")
+    return await get_doctor_slots(id=doctor_id, date=target_date_str)

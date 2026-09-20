@@ -135,6 +135,12 @@ async def check_in_patient(
     if not appointment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Appointment not found")
 
+    if appointment.status == AppointmentStatus.CANCELLED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot check in a cancelled appointment.",
+        )
+
     if appointment.status in (AppointmentStatus.CHECKED_IN, AppointmentStatus.IN_QUEUE, AppointmentStatus.COMPLETED):
         existing = await QueueEntry.find_one(QueueEntry.appointment_id == appointment_id)
         if existing:
@@ -258,6 +264,15 @@ async def complete_consultation(entry_id: str, consult_minutes: Optional[float] 
     if not entry:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Queue entry not found")
 
+    # State validation
+    if entry.status == QueueStatus.COMPLETED:
+        return entry  # Idempotent return without duplicating EMA calculation
+    if entry.status in (QueueStatus.NO_SHOW, QueueStatus.CANCELLED):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot complete consultation for an entry with status '{entry.status}'.",
+        )
+
     now = utcnow()
     entry.status = QueueStatus.COMPLETED
     entry.completed_at = now
@@ -327,6 +342,15 @@ async def start_consultation(entry_id: str) -> QueueEntry:
     if not entry:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Queue entry not found")
 
+    # State validation
+    if entry.status == QueueStatus.IN_CONSULTATION:
+        return entry
+    if entry.status in (QueueStatus.COMPLETED, QueueStatus.NO_SHOW, QueueStatus.CANCELLED):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot start consultation for an entry with status '{entry.status}'.",
+        )
+
     now = utcnow()
     entry.status = QueueStatus.IN_CONSULTATION
     entry.started_at = now
@@ -380,6 +404,13 @@ async def mark_no_show(entry_id: str) -> QueueEntry:
     entry = await QueueEntry.get(entry_id)
     if not entry:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Queue entry not found")
+
+    # State validation
+    if entry.status == QueueStatus.COMPLETED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot mark an already completed consultation as no-show.",
+        )
 
     now = utcnow()
     entry.status = QueueStatus.NO_SHOW

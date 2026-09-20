@@ -22,6 +22,7 @@ import type {
   PatientUser,
   NotificationPreferences,
 } from '@/types';
+import { patientPortalApi, bookingApi, discoveryApi, adminPortalApi } from '@/services/api';
 
 // ==========================================
 // Default notification preferences
@@ -641,6 +642,8 @@ interface PatientState {
   getDepartmentById: (id: string) => Department | undefined;
   getReviewByAppointmentId: (appointmentId: string) => Review | undefined;
   getTotalDocumentBytes: () => number;
+  isLoadingBackend: boolean;
+  fetchPatientData: () => Promise<void>;
 }
 
 function generateId(prefix: string): string {
@@ -665,6 +668,60 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   departments: [...PATIENT_DEPARTMENTS],
   doctors: [...PATIENT_DOCTORS],
   followUpSuggestions: { ...FOLLOW_UP_SUGGESTIONS },
+  isLoadingBackend: false,
+
+  fetchPatientData: async () => {
+    set({ isLoadingBackend: true });
+    try {
+      const [profileRes, familyRes, apptsRes, docsRes, revsRes, tcksRes, hospsRes, deptsRes, docsListRes] = await Promise.allSettled([
+        patientPortalApi.getProfile(),
+        patientPortalApi.getFamilyMembers(),
+        bookingApi.getMyAppointments(),
+        patientPortalApi.getDocuments(),
+        patientPortalApi.getReviews(),
+        patientPortalApi.getTickets(),
+        discoveryApi.getHospitals(),
+        adminPortalApi.getDepartments(),
+        discoveryApi.getDoctors(),
+      ]);
+
+      const updates: Partial<PatientState> = {};
+
+      if (profileRes.status === 'fulfilled' && profileRes.value.data) {
+        updates.patient = { ...get().patient, ...profileRes.value.data };
+      }
+      if (familyRes.status === 'fulfilled' && Array.isArray(familyRes.value.data)) {
+        updates.familyMembers = familyRes.value.data;
+      }
+      if (apptsRes.status === 'fulfilled' && Array.isArray(apptsRes.value.data)) {
+        updates.appointments = apptsRes.value.data;
+      }
+      if (docsRes.status === 'fulfilled' && Array.isArray(docsRes.value.data)) {
+        updates.documents = docsRes.value.data;
+      }
+      if (revsRes.status === 'fulfilled' && Array.isArray(revsRes.value.data)) {
+        updates.reviews = revsRes.value.data;
+      }
+      if (tcksRes.status === 'fulfilled' && Array.isArray(tcksRes.value.data)) {
+        updates.tickets = tcksRes.value.data;
+      }
+      if (hospsRes.status === 'fulfilled' && Array.isArray(hospsRes.value.data) && hospsRes.value.data.length > 0) {
+        updates.hospitals = hospsRes.value.data;
+      }
+      if (deptsRes.status === 'fulfilled' && Array.isArray(deptsRes.value.data) && deptsRes.value.data.length > 0) {
+        updates.departments = deptsRes.value.data;
+      }
+      if (docsListRes.status === 'fulfilled' && Array.isArray(docsListRes.value.data) && docsListRes.value.data.length > 0) {
+        updates.doctors = docsListRes.value.data;
+      }
+
+      set(updates);
+    } catch (err) {
+      console.error('Failed to fetch patient data from backend:', err);
+    } finally {
+      set({ isLoadingBackend: false });
+    }
+  },
 
   // Profile
   updateProfile: (updates) => {

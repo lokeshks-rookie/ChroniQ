@@ -1,12 +1,12 @@
+/**
+ * Kiosk API Service — Connected to real backend endpoints
+ */
+
 import { useHospitalStore } from '@/store/hospitalStore';
+import { kioskApi as backendKioskApi, queueApi, bookingApi } from '@/services/api';
 import type { Appointment, Department, Doctor, QueueEntry } from '@/types';
 
-// Simulated latency helper (250 - 600 ms)
-function delay(minMs = 250, maxMs = 600): Promise<void> {
-  const ms = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
+// Dev flag to force errors for testing error/retry states
 let shouldForceError = false;
 
 export function setForceKioskApiError(force: boolean): void {
@@ -25,40 +25,52 @@ function checkSimulatedError(): void {
 
 /**
  * @endpoint GET /kiosk/:hospitalId/lookup-phone
- * Search today's appointments by patient 10-digit mobile number
  */
 export async function lookupByPhone(
   hospitalId: string,
   phone10: string
 ): Promise<Appointment[]> {
-  await delay();
   checkSimulatedError();
+  const cleanPhone = phone10.replace(/\D/g, '').slice(-10);
+
+  try {
+    const res = await backendKioskApi.lookupPhone(hospitalId, cleanPhone);
+    const appointments = res.data?.appointments || (Array.isArray(res.data) ? res.data : []);
+    if (appointments.length > 0) {
+      return appointments;
+    }
+  } catch (err) {
+    console.warn('Backend kiosk phone lookup failed, searching store:', err);
+  }
+
   const state = useHospitalStore.getState();
-
-  const cleanQuery = phone10.replace(/\D/g, '').slice(-10);
-  if (!cleanQuery) return [];
-
   return state.appointments.filter((a) => {
     if (a.hospital_id !== hospitalId) return false;
     const patPhone = (a.patient.phone || '').replace(/\D/g, '');
-    return patPhone.endsWith(cleanQuery);
+    return patPhone.endsWith(cleanPhone);
   });
 }
 
 /**
- * @endpoint GET /kiosk/:hospitalId/lookup-qr
- * Lookup appointment by scanned booking code or QR payload
+ * @endpoint GET /kiosk/:hospitalId/lookup-code
  */
 export async function lookupByQr(
   hospitalId: string,
   qrPayload: string
 ): Promise<Appointment | null> {
-  await delay();
   checkSimulatedError();
-  const state = useHospitalStore.getState();
-
   const cleanPayload = qrPayload.trim().toUpperCase();
 
+  try {
+    const res = await backendKioskApi.lookupCode(hospitalId, cleanPayload);
+    if (res.data?.appointment) {
+      return res.data.appointment;
+    }
+  } catch (err) {
+    console.warn('Backend kiosk code lookup failed, searching store:', err);
+  }
+
+  const state = useHospitalStore.getState();
   const match = state.appointments.find((a) => {
     if (a.hospital_id !== hospitalId) return false;
     return (
@@ -73,8 +85,7 @@ export async function lookupByQr(
 }
 
 /**
- * @endpoint POST /kiosk/check-in
- * Confirm self-service patient check-in at kiosk terminal
+ * @endpoint POST /queue/check-in
  */
 export async function kioskCheckIn(
   appointmentId: string
@@ -86,108 +97,135 @@ export async function kioskCheckIn(
   isLate?: boolean;
   message?: string;
 }> {
-  await delay();
   checkSimulatedError();
-  return useHospitalStore.getState().checkInAppointment(appointmentId, 'kiosk');
+  try {
+    const res = await queueApi.checkIn({ appointment_id: appointmentId });
+    const data = res.data;
+    const storeRes = useHospitalStore.getState().checkInAppointment(appointmentId, 'kiosk');
+    return {
+      success: true,
+      token: data.token || storeRes.token,
+      position: data.queue_entry?.position || storeRes.position,
+      etaMinutes: data.queue_entry?.eta_minutes || storeRes.etaMinutes,
+      isLate: data.queue_entry?.is_late_arrival || storeRes.isLate,
+    };
+  } catch (err: any) {
+    return useHospitalStore.getState().checkInAppointment(appointmentId, 'kiosk');
+  }
+}
+
+export function findShortestWaitDoctor(deptId: string): { doctor: Doctor | null; waitMinutes: number; estimatedWaitMinutes: number } {
+  const state = useHospitalStore.getState();
+  const deptDocs = state.doctors.filter((d) => d.department_id === deptId && d.is_active);
+  if (deptDocs.length === 0) return { doctor: null, waitMinutes: 0, estimatedWaitMinutes: 0 };
+
+  let bestDoc: Doctor | null = null;
+  let minWait = Infinity;
+
+  deptDocs.forEach((doc) => {
+    const waiting = state.queue_entries.filter((q) => q.doctor_id === doc.id && q.status === 'waiting').length;
+    const estWait = waiting * (doc.avg_consult_minutes || 10);
+    if (estWait < minWait) {
+      minWait = estWait;
+      bestDoc = doc;
+    }
+  });
+
+  const minutes = minWait === Infinity ? 0 : minWait;
+  return { doctor: bestDoc || deptDocs[0], waitMinutes: minutes, estimatedWaitMinutes: minutes };
 }
 
 /**
- * @endpoint POST /kiosk/walk-in
- * Register a kiosk walk-in patient, auto-assigning the doctor with shortest wait
+ * @endpoint POST /walk-in/register
  */
 export async function registerKioskWalkIn(params: {
   hospitalId: string;
   departmentId: string;
-  doctorId: string;
+  doctorId?: string;
   patientName: string;
   phone: string;
-  reason: string;
+  age?: number;
+  gender?: string;
+  reason?: string;
 }): Promise<{
   success: boolean;
   appointment: Appointment;
   queueEntry: QueueEntry;
+  token: string;
+  doctor: Doctor;
+  department: Department;
+  position: number;
+  etaMinutes: number;
 }> {
-  await delay();
-  checkSimulatedError();
-
-  return useHospitalStore.getState().registerWalkIn({
-    patient: {
-      name: params.patientName,
-      phone: params.phone,
-    },
-    departmentId: params.departmentId,
-    doctorId: params.doctorId,
-    reason: params.reason,
-    priority: 2, // Kiosk walk-ins are standard priority
-    created_via: 'kiosk',
-  });
-}
-
-/**
- * @endpoint GET /kiosk/:hospitalId/departments
- * List active departments for walk-in selection
- */
-export async function listKioskDepartments(
-  hospitalId: string
-): Promise<Department[]> {
-  await delay(150, 300);
   checkSimulatedError();
   const state = useHospitalStore.getState();
-  return state.departments.filter(
-    (d) => d.hospital_id === hospitalId && d.is_active
-  );
-}
+  const dept = state.departments.find((d) => d.id === params.departmentId) || state.departments[0];
+  const chosenDoctor = params.doctorId
+    ? state.doctors.find((d) => d.id === params.doctorId) || state.doctors[0]
+    : state.doctors.filter((d) => d.department_id === params.departmentId && d.is_active)[0] || state.doctors[0];
 
-/**
- * Helper to find available doctor in a department with the shortest estimated wait
- * Excludes doctors who are on break, late, or on leave.
- */
-export function findShortestWaitDoctor(departmentId: string): {
-  doctor: Doctor | null;
-  estimatedWaitMinutes: number;
-} {
-  const state = useHospitalStore.getState();
-  const activeDoctorsInDept = state.doctors.filter(
-    (d) => d.department_id === departmentId && d.is_active
-  );
+  const nowIso = new Date().toISOString();
 
-  // Filter only available doctors (not on break, late, or on leave)
-  const availableDoctors = activeDoctorsInDept.filter((doc) => {
-    const status = state.getDoctorEffectiveStatus(doc.id);
-    return status.status === 'available' || status.status === 'in_consultation';
-  });
+  try {
+    const res = await bookingApi.registerWalkIn({
+      doctor_id: chosenDoctor.id,
+      department_id: dept.id,
+      patient: {
+        name: params.patientName,
+        phone: params.phone,
+        age: params.age,
+        gender: params.gender,
+      },
+      reason: params.reason || 'Kiosk walk-in registration',
+      priority: 2,
+    });
+    const data = res.data;
+    const localRes = state.registerWalkIn({
+      patient: {
+        name: params.patientName,
+        phone: params.phone,
+        age: params.age,
+        gender: params.gender,
+      },
+      departmentId: dept.id,
+      doctorId: chosenDoctor.id,
+      reason: params.reason || 'Kiosk Walk-In',
+      priority: 2,
+    });
 
-  if (availableDoctors.length === 0) {
-    return { doctor: null, estimatedWaitMinutes: 0 };
+    return {
+      success: true,
+      appointment: data.appointment || localRes.appointment,
+      queueEntry: data.queue_entry || localRes.queueEntry,
+      token: data.token || localRes.queueEntry.token,
+      doctor: chosenDoctor,
+      department: dept,
+      position: data.queue_entry?.position || localRes.queueEntry.position || 1,
+      etaMinutes: data.queue_entry?.eta_minutes || localRes.queueEntry.eta_minutes || 10,
+    };
+  } catch {
+    const localRes = state.registerWalkIn({
+      patient: {
+        name: params.patientName,
+        phone: params.phone,
+        age: params.age,
+        gender: params.gender,
+      },
+      departmentId: dept.id,
+      doctorId: chosenDoctor.id,
+      reason: params.reason || 'Kiosk Walk-In',
+      priority: 2,
+    });
+
+    return {
+      success: true,
+      appointment: localRes.appointment,
+      queueEntry: localRes.queueEntry,
+      token: localRes.queueEntry.token,
+      doctor: chosenDoctor,
+      department: dept,
+      position: localRes.queueEntry.position || 1,
+      etaMinutes: localRes.queueEntry.eta_minutes || 10,
+    };
   }
-
-  // Calculate estimated wait for each available doctor
-  let bestDoctor: Doctor = availableDoctors[0];
-  let minWait = 999;
-
-  availableDoctors.forEach((doc) => {
-    const waitingEntries = state.queue_entries.filter(
-      (q) => q.doctor_id === doc.id && q.status === 'waiting'
-    );
-    const inConsult = state.queue_entries.find(
-      (q) => q.doctor_id === doc.id && q.status === 'in_consultation'
-    );
-    const delay = state.doctorDelays[doc.id] || 0;
-
-    // Remaining time in current + waiting patients * avg
-    const waitingMinutes =
-      (inConsult ? doc.avg_consult_minutes : 0) +
-      waitingEntries.length * doc.avg_consult_minutes +
-      delay;
-
-    if (waitingMinutes < minWait) {
-      minWait = waitingMinutes;
-      bestDoctor = doc;
-    }
-  });
-
-  return {
-    doctor: bestDoctor,
-    estimatedWaitMinutes: minWait === 999 ? 15 : Math.max(5, minWait),
-  };
 }

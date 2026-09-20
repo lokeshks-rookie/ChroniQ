@@ -1,0 +1,136 @@
+# ChroniQ Backend Architecture & Design Decisions
+
+This document records the architectural and data model decisions made to address all open questions, frontend integrations, and known gaps between `ChroniQ.md` (Specification) and the React frontend implementations (`frontend/src/services/*.ts`, `frontend/src/types/index.ts`).
+
+---
+
+## 1. Consultation Notes & Prescriptions
+- **Decision**: Implemented as a dedicated Beanie Document model `ConsultationNote` in collection `consultation_notes`.
+- **Fields**:
+  - `appointment_id` (`PydanticObjectId`, indexed, unique per consultation)
+  - `doctor_id` (`PydanticObjectId`)
+  - `patient_id` (`PydanticObjectId`)
+  - `text` (`str`)
+  - `follow_up` (`str`: `none` | `1_week` | `2_weeks` | `1_month` | `custom`)
+  - `follow_up_date` (`Optional[datetime]`)
+  - `finalized` (`bool`: set to `True` upon consultation completion, locking edits)
+  - `updated_at` (`datetime`)
+- **API Endpoint**: `POST /consultations/draft` updates or creates an in-progress consultation note while the doctor conducts the consultation.
+
+---
+
+## 2. Doctor Availability State & Logs
+- **Decision**: Implemented in collection `doctor_availability` and `availability_logs`.
+- **State Fields**:
+  - `doctor_id` (`PydanticObjectId`, unique)
+  - `status` (`available` | `on_break` | `late` | `on_leave`)
+  - `until` (`Optional[str]` - time or ISO string)
+  - `delay_minutes` (`int`: default 0)
+  - `reason` (`Optional[str]`)
+  - `changed_at` (`datetime`)
+- **Behavior**:
+  - When status changes to `on_break` or `late`, downstream queue ETAs for waiting patients of that doctor automatically shift by `delay_minutes` (or duration of the break).
+  - An event is emitted via SSE (`doctor_availability_changed`) so live patient queues and admin dashboards update instantly.
+  - An entry is appended to `availability_logs`.
+
+---
+
+## 3. Medical Documents & File Storage
+- **Decision**: File binaries are stored in the server directory configured by `UPLOAD_DIR` (`./data/uploads/`), with document metadata stored in MongoDB collection `medical_documents`.
+- **Fields**:
+  - `patient_id` (`PydanticObjectId`, indexed)
+  - `family_member_id` (`Optional[PydanticObjectId]`)
+  - `appointment_id` (`Optional[PydanticObjectId]`)
+  - `name` (`str`)
+  - `category` (`lab_report` | `prescription` | `imaging` | `discharge_summary` | `other`)
+  - `mime` (`str`)
+  - `size_bytes` (`int`)
+  - `file_path` (`str`)
+  - `uploaded_at` (`datetime`)
+- **Validation**:
+  - Allowed MIME types: `application/pdf`, `image/png`, `image/jpeg`, `image/webp`.
+  - Max per-file upload size: 10 MB (`MAX_UPLOAD_MB`).
+  - Max total quota per patient: 50 MB (`USER_QUOTA_MB`).
+
+---
+
+## 4. Support Tickets
+- **Decision**: Stored in collection `support_tickets`.
+- **Fields**:
+  - `reference` (`str`: unique human-friendly format `TCK-XXXXX`)
+  - `patient_id` (`PydanticObjectId`, indexed)
+  - `category` (`booking_problem` | `queue_or_waiting` | `fee_or_payment` | `app_problem` | `privacy_concern` | `other`)
+  - `appointment_id` (`Optional[PydanticObjectId]`)
+  - `hospital_id` (`Optional[PydanticObjectId]`)
+  - `description` (`str`)
+  - `contact_preference` (`Channel`: `in_app` | `email` | `sms`)
+  - `status` (`open` | `in_review` | `resolved`)
+  - `created_at` (`datetime`)
+- **APIs**: `POST /support/tickets`, `GET /support/tickets`.
+
+---
+
+## 5. Patient Reviews & Aggregations
+- **Decision**: Collection `reviews` supports rich rating breakdown, tags, and expected wait perception.
+- **Fields**:
+  - `appointment_id` (`PydanticObjectId`, unique index — strictly one review per completed appointment)
+  - `patient_id` (`PydanticObjectId`)
+  - `doctor_id` (`PydanticObjectId`, indexed)
+  - `hospital_id` (`PydanticObjectId`, indexed)
+  - `doctor_rating` (`int`: 1 to 5)
+  - `hospital_rating` (`int`: 1 to 5)
+  - `comment` (`Optional[str]`)
+  - `tags` (`list[str]`)
+  - `wait_as_expected` (`shorter` | `as_expected` | `longer`)
+  - `created_at` (`datetime`)
+  - `updated_at` (`datetime`)
+- **Enforcement**:
+  - Creation allowed only after `appointment.status == 'completed'`.
+  - Edit allowed only within a 48-hour window (`created_at + 48 hours`).
+  - Average ratings on `Doctor` (`rating_avg`, `rating_count`) and `Hospital` are incrementally updated on review submission.
+
+---
+
+## 6. Doctor Leave & `needs_reschedule` Flag
+- **Decision**: When an administrator or doctor logs a leave block via `POST /admin/doctors/{id}/leaves` or `POST /doctor/leaves`:
+  1. Any existing open or held slots overlapping the leave range `[date_from, date_to]` are cancelled or blocked.
+  2. Any booked appointments overlapping the leave range are flagged with `needs_reschedule: true` and an administrative audit event is recorded.
+  3. Affected patients receive an automated `DOCTOR_DELAYED` / `RESCHEDULED` notification alerting them to reschedule their visit.
+
+---
+
+## 7. Queue Enhancements: `skip_count` and `POST /queue/start`
+- **Decision**:
+  - `QueueEntry` model includes `skip_count` (`int`: default 0) and `is_late_arrival` (`bool`: default False).
+  - Calling `POST /queue/skip` increments `skip_count`, lowers entry priority or moves sort time behind currently waiting patients, and recomputes ETAs.
+  - Calling `POST /queue/start` (or `POST /queue/start-consultation`) transitions entry status from `called` to `in_consultation`, records `started_at = utcnow()`, and pushes live status over SSE.
+
+---
+
+## 8. Real-Time Call Events & Physical Displays
+- **Decision**:
+  - When `POST /queue/call-next` or `POST /queue/call-again` is invoked:
+    - Increments `call_count` on `QueueEntry`.
+    - Generates a `CallEvent` containing `entry_id`, `token`, `doctor_id`, `department_id`, `room`, `call_count`, and `at`.
+    - Broadcasts the event to the department's TV display board channel (`department:{dept_id}`) and hospital admin channel.
+    - If `call_count >= 2` and patient still fails to enter consultation, `POST /queue/no-show` marks the entry as `no_show` and frees the queue.
+
+---
+
+## 9. Kiosk Endpoints & Physical Terminal Security
+- **Decision**:
+  - Kiosk routes (`/kiosk/*`) authenticate using an API key passed in `x-kiosk-api-key` matching `KIOSK_API_KEY`.
+  - Privacy safeguards:
+    - `GET /kiosk/{hospitalId}/lookup-phone`: matches phone number, but returns masked names (e.g., `A*** K****`) and masked phone numbers to protect patient privacy on public touchscreen kiosks.
+    - `GET /kiosk/{hospitalId}/lookup-qr`: decodes appointment booking code, confirms hospital match, and presents check-in confirmation.
+    - `POST /kiosk/check-in`: executes queue arrival check-in and generates token slip data.
+    - `POST /kiosk/walk-in`: registers walk-in patient directly at the kiosk.
+
+---
+
+## 10. Multi-Hospital Data Isolation & RBAC
+- **Decision**:
+  - Staff tokens contain `hospital_id`. All admin and receptionist queries are automatically scoped to `hospital_id`.
+  - Doctors are scoped strictly to their own `doctor_id` and assigned department.
+  - Patients can only access their own user profile, their own appointments, and verified `family_members`.
+  - Super admin has global read/write across all hospitals and audit logs.

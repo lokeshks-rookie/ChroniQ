@@ -21,6 +21,8 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const code = (state as any).code || '123456';
+
   const validate = () => {
     if (password.length < 8) return 'Password must be at least 8 characters.';
     if (password !== confirmPassword) return 'Passwords do not match.';
@@ -38,7 +40,7 @@ export default function ResetPasswordPage() {
 
     setIsLoading(true);
     try {
-      await mockResetPassword(identifier, password);
+      await mockResetPassword(identifier, password, code);
       navigate('/login', {
         replace: true,
         state: { passwordResetSuccess: true },

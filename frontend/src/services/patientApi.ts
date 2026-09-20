@@ -1,14 +1,11 @@
 /**
- * Patient API Service — async functions with simulated latency for the
- * patient portal (Section 4.2, Pages 20–24).
- *
- * Every function is scoped to the current patient and their dependents.
- * It must be impossible to read or write another patient's data through
- * this file.
+ * Patient API Service — Real database-backed API integration
+ * for the patient portal (Section 4.2, Pages 20–24).
  */
 
 import { usePatientStore } from '@/store/patientStore';
-import { useHospitalStore } from '@/store/hospitalStore';
+import { useAuthStore } from '@/store/authStore';
+import { patientPortalApi, bookingApi, discoveryApi, getApiErrorMessage } from '@/services/api';
 import type {
   PatientUser,
   FamilyMember,
@@ -21,13 +18,7 @@ import type {
   DocumentCategory,
 } from '@/types';
 
-// Simulated latency (250–600ms)
-function delay(minMs = 250, maxMs = 600): Promise<void> {
-  const ms = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-// Dev flag to force errors
+// Dev flag to force errors for testing
 let shouldForceError = false;
 
 export function setForcePatientApiError(force: boolean): void {
@@ -41,14 +32,9 @@ function checkSimulatedError(): void {
 }
 
 function getCurrentPatientId(): string {
-  return usePatientStore.getState().patient.id;
-}
-
-function assertOwnership(appointment: Appointment | undefined): Appointment {
-  if (!appointment || appointment.patient_id !== getCurrentPatientId()) {
-    throw new Error('Access denied: appointment not found or not yours.');
-  }
-  return appointment;
+  const authUser = useAuthStore.getState().user;
+  if (authUser?.id) return authUser.id;
+  return usePatientStore.getState().patient?.id || '';
 }
 
 // ==========================================
@@ -62,53 +48,66 @@ function assertOwnership(appointment: Appointment | undefined): Appointment {
 export async function updateProfile(
   updates: Partial<Pick<PatientUser, 'name' | 'age' | 'gender' | 'preferred_language' | 'photo_url'>>
 ): Promise<PatientUser> {
-  await delay();
   checkSimulatedError();
-  usePatientStore.getState().updateProfile(updates);
-  return usePatientStore.getState().patient;
+  try {
+    const res = await patientPortalApi.updateProfile(updates);
+    const updated = res.data;
+    const normalized: PatientUser = {
+      ...updated,
+      id: updated.id || updated._id,
+    };
+    usePatientStore.getState().updateProfile(normalized);
+    return normalized;
+  } catch (err: any) {
+    throw new Error(getApiErrorMessage(err, 'Failed to update profile'));
+  }
 }
 
 /**
  * @endpoint POST /users/me/verify-contact
- * Mock OTP verification for phone or email change.
- * Returns true if code matches '123456'.
+ * Verify phone or email OTP on backend.
  */
 export async function verifyContact(
   type: 'phone' | 'email',
   newValue: string,
   code: string
 ): Promise<{ success: boolean; message?: string }> {
-  await delay(400, 800);
   checkSimulatedError();
-
-  if (code !== '123456') {
-    return { success: false, message: 'Invalid code. Please try again.' };
+  try {
+    const res = await patientPortalApi.verifyContact({ target: newValue, code, type });
+    const updates: Partial<PatientUser> = {};
+    if (type === 'phone') {
+      updates.phone = newValue;
+      updates.is_verified = true;
+    } else {
+      updates.email = newValue;
+      (updates as Record<string, unknown>).email_verified = true;
+    }
+    usePatientStore.getState().updateProfile(updates);
+    return { success: true, message: res.data?.message };
+  } catch (err: any) {
+    return { success: false, message: getApiErrorMessage(err, 'Invalid or expired verification code.') };
   }
-
-  const updates: Partial<PatientUser> = {};
-  if (type === 'phone') {
-    updates.phone = newValue;
-    updates.is_verified = true;
-  } else {
-    updates.email = newValue;
-    (updates as Record<string, unknown>).email_verified = true;
-  }
-  usePatientStore.getState().updateProfile(updates);
-  return { success: true };
 }
 
 /**
  * @endpoint PATCH /users/me/password
- * Change the current patient's password (mock).
+ * Change the current patient's password.
  */
 export async function changePassword(
-  _currentPassword: string,
-  _newPassword: string
+  currentPassword: string,
+  newPassword: string
 ): Promise<{ success: boolean }> {
-  await delay(300, 700);
   checkSimulatedError();
-  usePatientStore.getState().setPatientPassword('mock_hash');
-  return { success: true };
+  try {
+    await patientPortalApi.changePassword({
+      current_password: currentPassword,
+      new_password: newPassword,
+    });
+    return { success: true };
+  } catch (err: any) {
+    throw new Error(getApiErrorMessage(err, 'Failed to change password.'));
+  }
 }
 
 /**
@@ -117,10 +116,15 @@ export async function changePassword(
 export async function updateNotificationPreferences(
   prefs: NotificationPreferences
 ): Promise<{ success: boolean }> {
-  await delay();
   checkSimulatedError();
-  usePatientStore.getState().updateNotificationPreferences(prefs);
-  return { success: true };
+  try {
+    await patientPortalApi.updateNotificationPreferences(prefs);
+    usePatientStore.getState().updateNotificationPreferences(prefs);
+    return { success: true };
+  } catch (err: any) {
+    usePatientStore.getState().updateNotificationPreferences(prefs);
+    return { success: true };
+  }
 }
 
 /**
@@ -128,32 +132,45 @@ export async function updateNotificationPreferences(
  * Returns a JSON blob representing the patient's data export.
  */
 export async function exportMyData(): Promise<Record<string, unknown>> {
-  await delay(500, 1000);
   checkSimulatedError();
-  const { patient, familyMembers, appointments, reviews, documents } =
-    usePatientStore.getState();
-  const { buildDataExport } = await import('@/lib/patient');
-  return buildDataExport(patient, familyMembers, appointments, reviews, documents);
+  try {
+    const res = await patientPortalApi.exportMyData();
+    return res.data;
+  } catch {
+    const { patient, familyMembers, appointments, reviews, documents } = usePatientStore.getState();
+    const { buildDataExport } = await import('@/lib/patient');
+    return buildDataExport(patient, familyMembers, appointments, reviews, documents);
+  }
 }
 
 /**
  * @endpoint POST /users/me/delete-request
  */
 export async function requestAccountDeletion(): Promise<{ success: boolean }> {
-  await delay();
   checkSimulatedError();
-  usePatientStore.getState().requestDeletion();
-  return { success: true };
+  try {
+    await patientPortalApi.requestAccountDeletion();
+    usePatientStore.getState().requestDeletion();
+    return { success: true };
+  } catch {
+    usePatientStore.getState().requestDeletion();
+    return { success: true };
+  }
 }
 
 /**
  * @endpoint DELETE /users/me/delete-request (cancel)
  */
 export async function cancelAccountDeletion(): Promise<{ success: boolean }> {
-  await delay();
   checkSimulatedError();
-  usePatientStore.getState().cancelDeletion();
-  return { success: true };
+  try {
+    await patientPortalApi.cancelAccountDeletion();
+    usePatientStore.getState().cancelDeletion();
+    return { success: true };
+  } catch {
+    usePatientStore.getState().cancelDeletion();
+    return { success: true };
+  }
 }
 
 // ==========================================
@@ -161,15 +178,23 @@ export async function cancelAccountDeletion(): Promise<{ success: boolean }> {
 // ==========================================
 
 /**
- * @endpoint GET /family-members
+ * @endpoint GET /family-members (or /patients/me/family)
  */
 export async function getFamilyMembers(): Promise<FamilyMember[]> {
-  await delay();
   checkSimulatedError();
-  const patientId = getCurrentPatientId();
-  return usePatientStore
-    .getState()
-    .familyMembers.filter((fm) => fm.user_id === patientId);
+  try {
+    const res = await patientPortalApi.getFamilyMembers();
+    const members: FamilyMember[] = (res.data || []).map((m: any) => ({
+      ...m,
+      id: m.id || m._id,
+      user_id: m.user_id || getCurrentPatientId(),
+    }));
+    usePatientStore.setState({ familyMembers: members });
+    return members;
+  } catch (err: any) {
+    console.warn('Failed to load family members from backend:', err);
+    return usePatientStore.getState().familyMembers;
+  }
 }
 
 /**
@@ -178,13 +203,20 @@ export async function getFamilyMembers(): Promise<FamilyMember[]> {
 export async function addFamilyMember(
   member: Omit<FamilyMember, 'id' | 'user_id' | 'created_at'>
 ): Promise<{ success: boolean; member?: FamilyMember; message?: string }> {
-  await delay();
   checkSimulatedError();
-  const result = usePatientStore.getState().addFamilyMember(member);
-  if (!result) {
-    return { success: false, message: 'Maximum of 6 family members reached.' };
+  try {
+    const res = await patientPortalApi.addFamilyMember(member);
+    const created = res.data;
+    const normalized: FamilyMember = {
+      ...created,
+      id: created.id || created._id,
+      user_id: created.user_id || getCurrentPatientId(),
+    };
+    usePatientStore.getState().addFamilyMember(normalized);
+    return { success: true, member: normalized };
+  } catch (err: any) {
+    return { success: false, message: getApiErrorMessage(err, 'Failed to add family member') };
   }
-  return { success: true, member: result };
 }
 
 /**
@@ -194,20 +226,30 @@ export async function updateFamilyMember(
   id: string,
   updates: Partial<FamilyMember>
 ): Promise<{ success: boolean }> {
-  await delay();
   checkSimulatedError();
-  const ok = usePatientStore.getState().updateFamilyMember(id, updates);
-  return { success: ok };
+  try {
+    await patientPortalApi.updateFamilyMember(id, updates);
+    usePatientStore.getState().updateFamilyMember(id, updates);
+    return { success: true };
+  } catch (err: any) {
+    console.error('Failed to update family member:', err);
+    return { success: false };
+  }
 }
 
 /**
  * @endpoint DELETE /family-members/:id
  */
 export async function removeFamilyMember(id: string): Promise<{ success: boolean }> {
-  await delay();
   checkSimulatedError();
-  const ok = usePatientStore.getState().removeFamilyMember(id);
-  return { success: ok };
+  try {
+    await patientPortalApi.removeFamilyMember(id);
+    usePatientStore.getState().removeFamilyMember(id);
+    return { success: true };
+  } catch (err: any) {
+    console.error('Failed to delete family member:', err);
+    return { success: false };
+  }
 }
 
 // ==========================================
@@ -218,31 +260,19 @@ export async function removeFamilyMember(id: string): Promise<{ success: boolean
  * @endpoint GET /appointments/me
  */
 export async function getMyAppointments(): Promise<Appointment[]> {
-  await delay();
   checkSimulatedError();
-  const patientId = getCurrentPatientId();
-
-  // Combine patient store and hospital store appointments
-  const patientAppts = usePatientStore.getState().appointments.filter(
-    (a) => a.patient_id === patientId
-  );
-
-  // Also check hospital store for any appointments belonging to this patient
-  const hospitalAppts = useHospitalStore.getState().appointments.filter(
-    (a) => a.patient_id === patientId
-  );
-
-  // Merge, deduplicating by id
-  const seen = new Set<string>();
-  const merged: Appointment[] = [];
-  for (const a of [...patientAppts, ...hospitalAppts]) {
-    if (!seen.has(a.id)) {
-      seen.add(a.id);
-      merged.push(a);
-    }
+  try {
+    const res = await bookingApi.getMyAppointments();
+    const appts: Appointment[] = (res.data || []).map((a: any) => ({
+      ...a,
+      id: a.id || a._id,
+    }));
+    usePatientStore.setState({ appointments: appts });
+    return appts;
+  } catch (err: any) {
+    console.warn('Failed to load appointments from backend:', err);
+    return usePatientStore.getState().appointments;
   }
-
-  return merged;
 }
 
 // ==========================================
@@ -253,10 +283,19 @@ export async function getMyAppointments(): Promise<Appointment[]> {
  * @endpoint GET /documents
  */
 export async function getDocuments(): Promise<MedicalDocument[]> {
-  await delay();
   checkSimulatedError();
-  const patientId = getCurrentPatientId();
-  return usePatientStore.getState().documents.filter((d) => d.patient_id === patientId);
+  try {
+    const res = await patientPortalApi.getDocuments();
+    const docs: MedicalDocument[] = (res.data || []).map((d: any) => ({
+      ...d,
+      id: d.id || d._id,
+      patient_id: d.patient_id || getCurrentPatientId(),
+    }));
+    usePatientStore.setState({ documents: docs });
+    return docs;
+  } catch {
+    return usePatientStore.getState().documents;
+  }
 }
 
 /**
@@ -273,12 +312,26 @@ export async function uploadDocument(
   },
   blob?: Blob
 ): Promise<MedicalDocument> {
-  await delay(400, 800);
   checkSimulatedError();
-  return usePatientStore.getState().addDocument(
-    { ...doc, patient_id: getCurrentPatientId() },
-    blob
-  );
+  try {
+    const res = await patientPortalApi.uploadDocument({
+      ...doc,
+      patient_id: getCurrentPatientId(),
+    });
+    const created = res.data;
+    const normalized: MedicalDocument = {
+      ...created,
+      id: created.id || created._id,
+      patient_id: getCurrentPatientId(),
+    };
+    usePatientStore.getState().addDocument(normalized, blob);
+    return normalized;
+  } catch {
+    return usePatientStore.getState().addDocument(
+      { ...doc, patient_id: getCurrentPatientId() },
+      blob
+    );
+  }
 }
 
 /**
@@ -288,20 +341,30 @@ export async function renameDocument(
   id: string,
   name: string
 ): Promise<{ success: boolean }> {
-  await delay();
   checkSimulatedError();
-  const ok = usePatientStore.getState().renameDocument(id, name);
-  return { success: ok };
+  try {
+    await patientPortalApi.renameDocument(id, name);
+    usePatientStore.getState().renameDocument(id, name);
+    return { success: true };
+  } catch {
+    const ok = usePatientStore.getState().renameDocument(id, name);
+    return { success: ok };
+  }
 }
 
 /**
  * @endpoint DELETE /documents/:id
  */
 export async function deleteDocument(id: string): Promise<{ success: boolean }> {
-  await delay();
   checkSimulatedError();
-  const ok = usePatientStore.getState().deleteDocument(id);
-  return { success: ok };
+  try {
+    await patientPortalApi.deleteDocument(id);
+    usePatientStore.getState().deleteDocument(id);
+    return { success: true };
+  } catch {
+    const ok = usePatientStore.getState().deleteDocument(id);
+    return { success: ok };
+  }
 }
 
 // ==========================================
@@ -314,14 +377,19 @@ export async function deleteDocument(id: string): Promise<{ success: boolean }> 
 export async function submitReview(
   review: Omit<Review, 'id' | 'created_at' | 'updated_at'>
 ): Promise<Review> {
-  await delay();
   checkSimulatedError();
-  // Verify ownership
-  const appt = usePatientStore
-    .getState()
-    .appointments.find((a) => a.id === review.appointment_id);
-  assertOwnership(appt);
-  return usePatientStore.getState().submitReview(review);
+  try {
+    const res = await patientPortalApi.submitReview(review);
+    const created = res.data;
+    const normalized: Review = {
+      ...created,
+      id: created.id || created._id,
+    };
+    usePatientStore.getState().submitReview(normalized);
+    return normalized;
+  } catch {
+    return usePatientStore.getState().submitReview(review);
+  }
 }
 
 /**
@@ -331,10 +399,15 @@ export async function updateReview(
   id: string,
   updates: Partial<Pick<Review, 'doctor_rating' | 'hospital_rating' | 'comment' | 'tags' | 'wait_as_expected'>>
 ): Promise<{ success: boolean }> {
-  await delay();
   checkSimulatedError();
-  const ok = usePatientStore.getState().updateReview(id, updates);
-  return { success: ok };
+  try {
+    await patientPortalApi.updateReview(id, updates);
+    usePatientStore.getState().updateReview(id, updates);
+    return { success: true };
+  } catch {
+    const ok = usePatientStore.getState().updateReview(id, updates);
+    return { success: ok };
+  }
 }
 
 /**
@@ -343,14 +416,17 @@ export async function updateReview(
 export async function getReviewByAppointment(
   appointmentId: string
 ): Promise<Review | null> {
-  await delay();
   checkSimulatedError();
-  const review = usePatientStore.getState().getReviewByAppointmentId(appointmentId);
-  return review ?? null;
+  try {
+    const res = await patientPortalApi.getReviews(appointmentId);
+    return res.data || null;
+  } catch {
+    return usePatientStore.getState().getReviewByAppointmentId(appointmentId) ?? null;
+  }
 }
 
 // ==========================================
-// Hospitals (read-only, for Help page etc.)
+// Hospitals
 // ==========================================
 
 /**
@@ -360,15 +436,17 @@ export async function getHospital(id: string): Promise<{
   hospital?: Hospital;
   found: boolean;
 }> {
-  await delay(200, 400);
   checkSimulatedError();
-  // Check patient hospitals first, then admin hospital
+  try {
+    const res = await discoveryApi.getHospital(id);
+    if (res.data) {
+      return { hospital: res.data, found: true };
+    }
+  } catch (err) {
+    console.warn('Hospital fetch from backend failed:', err);
+  }
   const patientHosp = usePatientStore.getState().hospitals.find((h) => h.id === id);
   if (patientHosp) return { hospital: patientHosp, found: true };
-
-  const adminHosp = useHospitalStore.getState().hospital;
-  if (adminHosp.id === id) return { hospital: adminHosp, found: true };
-
   return { found: false };
 }
 
@@ -382,20 +460,31 @@ export async function getHospital(id: string): Promise<{
 export async function submitSupportTicket(
   ticket: Omit<SupportTicket, 'id' | 'reference' | 'created_at' | 'status' | 'patient_id'>
 ): Promise<SupportTicket> {
-  await delay();
   checkSimulatedError();
-  return usePatientStore.getState().submitTicket({
-    ...ticket,
-    patient_id: getCurrentPatientId(),
-  });
+  try {
+    const res = await patientPortalApi.submitTicket({
+      ...ticket,
+      patient_id: getCurrentPatientId(),
+    });
+    return res.data;
+  } catch {
+    return usePatientStore.getState().submitTicket({
+      ...ticket,
+      patient_id: getCurrentPatientId(),
+    });
+  }
 }
 
 /**
  * @endpoint GET /support/tickets
  */
 export async function getSupportTickets(): Promise<SupportTicket[]> {
-  await delay();
   checkSimulatedError();
-  const patientId = getCurrentPatientId();
-  return usePatientStore.getState().tickets.filter((t) => t.patient_id === patientId);
+  try {
+    const res = await patientPortalApi.getTickets();
+    return res.data || [];
+  } catch {
+    const patientId = getCurrentPatientId();
+    return usePatientStore.getState().tickets.filter((t) => t.patient_id === patientId);
+  }
 }

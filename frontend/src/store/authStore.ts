@@ -1,16 +1,25 @@
 import { create } from 'zustand';
 import type { Role, Capability, PermissionsMatrix } from '@/types';
+import { authApi, getApiErrorMessage } from '@/services/api';
 
 export type UserRole = Role;
 
 export interface AuthUser {
-  _id: string;
+  id: string;
+  _id?: string;
   name: string;
   phone: string;
   email?: string;
   role: UserRole;
   hospital_id?: string;
+  linked_doctor_id?: string;
   is_verified: boolean;
+  is_active?: boolean;
+  age?: number;
+  gender?: string;
+  photo_url?: string;
+  email_verified?: boolean;
+  notification_preferences?: any;
 }
 
 const DEFAULT_PERMISSIONS: PermissionsMatrix = {
@@ -91,20 +100,39 @@ const DEFAULT_PERMISSIONS: PermissionsMatrix = {
   },
 };
 
+const TOKEN_KEY = 'chroniq_token';
+const USER_KEY = 'chroniq_user';
+
+function loadPersistedAuth(): { user: AuthUser | null; token: string | null } {
+  try {
+    const token = localStorage.getItem(TOKEN_KEY);
+    const userStr = localStorage.getItem(USER_KEY);
+    if (token && userStr) {
+      const user = JSON.parse(userStr);
+      if (!user.id && user._id) {
+        user.id = user._id;
+      }
+      return { user, token };
+    }
+  } catch (e) {
+    console.error('Failed to load persisted auth', e);
+  }
+  return { user: null, token: null };
+}
+
 interface AuthState {
-  // Friend's auth fields
   user: AuthUser | null;
   token: string | null;
   isAuthenticated: boolean;
-  setAuth: (user: AuthUser, token: string) => void;
-  clearAuth: () => void;
-
-  // RBAC & role switching fields
   currentRole: Role;
   currentUserId: string;
   currentUserName: string;
   currentDoctorId: string;
   permissions: PermissionsMatrix;
+
+  setAuth: (user: AuthUser, token: string) => void;
+  clearAuth: () => void;
+  restoreSession: () => Promise<boolean>;
   setRole: (role: Role, doctorId?: string) => void;
   setDoctorId: (doctorId: string) => void;
   updatePermission: (role: Role, capability: Capability, value: boolean) => void;
@@ -112,41 +140,53 @@ interface AuthState {
   resetPermissions: () => void;
 }
 
-const defaultAdminUser: AuthUser = {
-  _id: 'user_admin_1',
-  name: 'Suresh Narayanan',
-  phone: '+919876543210',
-  email: 'admin@cityhospital.com',
-  role: 'hospital_admin',
-  hospital_id: 'hosp_city_01',
-  is_verified: true,
-};
+const initialAuth = loadPersistedAuth();
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  // Default state initialized as logged-in hospital_admin for demo dashboard access
-  user: defaultAdminUser,
-  token: 'mock-initial-token',
-  isAuthenticated: true,
+  user: initialAuth.user,
+  token: initialAuth.token,
+  isAuthenticated: Boolean(initialAuth.token && initialAuth.user),
 
-  currentRole: 'hospital_admin',
-  currentUserId: 'user_admin_1',
-  currentUserName: 'Suresh Narayanan',
-  currentDoctorId: 'doc_card_2', // Default: Dr. Meena Raj, Cardiology
+  currentRole: initialAuth.user?.role || 'patient',
+  currentUserId: initialAuth.user?.id || (initialAuth.user as any)?._id || '',
+  currentUserName: initialAuth.user?.name || '',
+  currentDoctorId: initialAuth.user?.linked_doctor_id || initialAuth.user?.id || 'doc_card_1',
   permissions: DEFAULT_PERMISSIONS,
 
   setAuth: (user: AuthUser, token: string) => {
+    const normalizedUser = {
+      ...user,
+      id: user.id || (user as any)._id || '',
+    };
+    try {
+      localStorage.setItem(TOKEN_KEY, token);
+      localStorage.setItem(USER_KEY, JSON.stringify(normalizedUser));
+    } catch (e) {
+      console.error('Failed to persist auth to localStorage', e);
+    }
+
     set({
-      user,
+      user: normalizedUser,
       token,
       isAuthenticated: true,
-      currentRole: user.role,
-      currentUserId: user._id,
-      currentUserName: user.name,
-      currentDoctorId: user.role === 'doctor' ? (user._id || 'doc_card_2') : get().currentDoctorId,
+      currentRole: normalizedUser.role,
+      currentUserId: normalizedUser.id,
+      currentUserName: normalizedUser.name,
+      currentDoctorId:
+        normalizedUser.role === 'doctor'
+          ? normalizedUser.linked_doctor_id || normalizedUser.id
+          : get().currentDoctorId,
     });
   },
 
   clearAuth: () => {
+    try {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+    } catch (e) {
+      console.error('Failed to clear persisted auth', e);
+    }
+
     set({
       user: null,
       token: null,
@@ -154,7 +194,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       currentRole: 'patient',
       currentUserId: '',
       currentUserName: '',
+      currentDoctorId: '',
     });
+  },
+
+  restoreSession: async () => {
+    const token = get().token || localStorage.getItem(TOKEN_KEY);
+    if (!token) {
+      get().clearAuth();
+      return false;
+    }
+
+    try {
+      const res = await authApi.me();
+      const meData = res.data;
+      const normalizedUser: AuthUser = {
+        ...meData,
+        id: meData.id || meData._id,
+      };
+      get().setAuth(normalizedUser, token);
+      return true;
+    } catch (err) {
+      console.warn('Session restoration failed:', err);
+      get().clearAuth();
+      return false;
+    }
   },
 
   setDoctorId: (doctorId: string) => {
@@ -162,96 +226,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   setRole: (role: Role, doctorId?: string) => {
-    if (role === 'doctor') {
-      const docId = doctorId || get().currentDoctorId || 'doc_card_2';
-      const user: AuthUser = {
-        _id: 'user_doc_2',
-        name: 'Dr. Meena Raj',
-        phone: '+919876543211',
-        email: 'meena.raj@cityhospital.com',
-        role: 'doctor',
-        hospital_id: 'hosp_city_01',
-        is_verified: true,
-      };
-      set({
-        currentRole: 'doctor',
-        currentUserId: user._id,
-        currentUserName: user.name,
-        currentDoctorId: docId,
-        user,
-        isAuthenticated: true,
-      });
-    } else if (role === 'receptionist') {
-      const user: AuthUser = {
-        _id: 'user_rec_1',
-        name: 'Deepa Krishnan',
-        phone: '+919876543212',
-        email: 'deepa@cityhospital.com',
-        role: 'receptionist',
-        hospital_id: 'hosp_city_01',
-        is_verified: true,
-      };
+    const currentUser = get().user;
+    if (currentUser) {
+      const updatedUser = { ...currentUser, role };
       set({
         currentRole: role,
-        currentUserId: user._id,
-        currentUserName: user.name,
-        user,
-        isAuthenticated: true,
-      });
-    } else if (role === 'patient') {
-      const user: AuthUser = {
-        _id: 'pat_arun_01',
-        name: 'Arun Kumar',
-        phone: '+919876543213',
-        email: 'arun.kumar@gmail.com',
-        role: 'patient',
-        is_verified: true,
-      };
-      set({
-        currentRole: 'patient',
-        currentUserId: user._id,
-        currentUserName: user.name,
-        user,
-        isAuthenticated: true,
-      });
-    } else if (role === 'super_admin') {
-      const user: AuthUser = {
-        _id: 'user_super_1',
-        name: 'Super Admin',
-        phone: '+919876543214',
-        email: 'superadmin@chroniq.com',
-        role: 'super_admin',
-        is_verified: true,
-      };
-      set({
-        currentRole: 'super_admin',
-        currentUserId: user._id,
-        currentUserName: user.name,
-        user,
-        isAuthenticated: true,
+        currentDoctorId: doctorId || currentUser.linked_doctor_id || get().currentDoctorId,
+        user: updatedUser,
       });
     } else {
-      const user: AuthUser = {
-        _id: 'user_admin_1',
-        name: 'Suresh Narayanan',
-        phone: '+919876543210',
-        email: 'admin@cityhospital.com',
-        role: 'hospital_admin',
-        hospital_id: 'hosp_city_01',
-        is_verified: true,
-      };
-      set({
-        currentRole: 'hospital_admin',
-        currentUserId: user._id,
-        currentUserName: user.name,
-        user,
-        isAuthenticated: true,
-      });
+      set({ currentRole: role });
     }
   },
 
   updatePermission: (role: Role, capability: Capability, value: boolean) => {
-    if (role === 'hospital_admin') return;
+    if (role === 'hospital_admin' || role === 'super_admin') return;
 
     set((state) => ({
       permissions: {
@@ -274,42 +263,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 }));
 
-// ─── Mock API ─────────────────────────────────────────────────────────────────
+// ─── Real Authentication Helpers ──────────────────────────────────────────────
 
 export interface LoginResponse {
   user: AuthUser;
   token: string;
 }
 
-export async function mockLogin(identifier: string, password: string): Promise<LoginResponse> {
-  await new Promise((resolve) => setTimeout(resolve, 800));
-
-  if (password !== 'password') {
-    throw new Error('Invalid credentials. Use "password" to login.');
+export async function login(identifier: string, password: string): Promise<LoginResponse> {
+  try {
+    const res = await authApi.login({ identifier, password });
+    const { token, user } = res.data;
+    const normalizedUser: AuthUser = {
+      ...user,
+      id: user.id || user._id,
+    };
+    useAuthStore.getState().setAuth(normalizedUser, token);
+    return { user: normalizedUser, token };
+  } catch (err: any) {
+    throw new Error(getApiErrorMessage(err, 'Invalid credentials. Please try again.'));
   }
-
-  const roleLower = identifier.toLowerCase();
-  
-  let role: UserRole = 'patient';
-  if (roleLower.includes('doctor')) role = 'doctor';
-  else if (roleLower.includes('receptionist')) role = 'receptionist';
-  else if (roleLower.includes('admin') && !roleLower.includes('super')) role = 'hospital_admin';
-  else if (roleLower.includes('super')) role = 'super_admin';
-
-  return {
-    user: {
-      _id: 'usr-mock-' + Date.now(),
-      name: role === 'patient' ? 'Test Patient' : 'Test ' + role,
-      phone: '+919876543210',
-      email: identifier.includes('@') ? identifier : 'test@chroniq.com',
-      role,
-      is_verified: true,
-      ...(role === 'doctor' || role === 'hospital_admin' || role === 'receptionist'
-        ? { hospital_id: 'hosp_city_01' }
-        : {}),
-    },
-    token: 'mock-jwt-token-1234567890',
-  };
 }
 
 export interface RegisterPayload {
@@ -321,58 +294,78 @@ export interface RegisterPayload {
 
 export interface RegisterResponse {
   user: AuthUser;
+  token?: string;
+  message?: string;
 }
 
-export async function mockRegister(payload: RegisterPayload): Promise<RegisterResponse> {
-  await new Promise((resolve) => setTimeout(resolve, 800));
-
-  if (!payload.name || !payload.phone) {
-    throw new Error('Name and phone are required.');
-  }
-
-  if (payload.phone === '9999999999') {
-    throw new Error('An account with this phone number already exists.');
-  }
-
-  return {
-    user: {
-      _id: 'usr-mock-' + Date.now(),
+export async function register(payload: RegisterPayload): Promise<RegisterResponse> {
+  try {
+    const res = await authApi.register({
       name: payload.name,
       phone: payload.phone,
-      email: payload.email,
+      email: payload.email || undefined,
+      password: payload.password,
       role: 'patient',
-      is_verified: false,
+    });
+    const { user, token, message } = res.data;
+    const normalizedUser: AuthUser = {
+      ...user,
+      id: user.id || user._id,
+    };
+    if (token) {
+      useAuthStore.getState().setAuth(normalizedUser, token);
     }
-  };
-}
-
-export async function mockVerifyOtp(identifier: string, code: string): Promise<LoginResponse> {
-  await new Promise((resolve) => setTimeout(resolve, 800));
-
-  if (code !== '123456') {
-    throw new Error('Invalid or expired OTP code.');
+    return { user: normalizedUser, token, message };
+  } catch (err: any) {
+    throw new Error(getApiErrorMessage(err, 'Registration failed. Please check your information.'));
   }
-
-  return {
-    user: {
-      _id: 'usr-mock-' + Date.now(),
-      name: 'Verified User',
-      phone: identifier,
-      role: 'patient',
-      is_verified: true,
-    },
-    token: 'mock-jwt-token-verified-123456',
-  };
 }
 
-export async function mockRequestPasswordReset(identifier: string): Promise<{ success: true }> {
-  await new Promise((resolve) => setTimeout(resolve, 800));
-  if (!identifier.trim()) throw new Error('Please enter your phone or email.');
-  return { success: true };
+export async function verifyOtp(identifier: string, code: string, purpose = 'register'): Promise<LoginResponse> {
+  try {
+    const res = await authApi.verifyOtp({ target: identifier, code, purpose });
+    const { user, token } = res.data;
+    const normalizedUser: AuthUser = user ? { ...user, id: user.id || user._id } : (useAuthStore.getState().user as AuthUser);
+    if (token && normalizedUser) {
+      useAuthStore.getState().setAuth(normalizedUser, token);
+    }
+    return { user: normalizedUser, token };
+  } catch (err: any) {
+    throw new Error(getApiErrorMessage(err, 'Invalid or expired OTP code.'));
+  }
 }
 
-export async function mockResetPassword(_identifier: string, newPassword: string): Promise<{ success: true }> {
-  await new Promise((resolve) => setTimeout(resolve, 800));
-  if (newPassword.length < 8) throw new Error('Password must be at least 8 characters.');
-  return { success: true };
+export async function resendOtp(target: string, purpose = 'register'): Promise<{ success: boolean; message?: string }> {
+  try {
+    const res = await authApi.resendOtp({ target, purpose });
+    return { success: true, message: res.data?.message };
+  } catch (err: any) {
+    throw new Error(getApiErrorMessage(err, 'Failed to resend verification code.'));
+  }
 }
+
+export async function requestPasswordReset(identifier: string): Promise<{ success: boolean; message?: string }> {
+  try {
+    const res = await authApi.forgotPassword({ target: identifier });
+    return { success: true, message: res.data?.message };
+  } catch (err: any) {
+    throw new Error(getApiErrorMessage(err, 'Unable to request password reset for this contact.'));
+  }
+}
+
+export async function resetPassword(identifier: string, code: string, newPassword: string): Promise<{ success: boolean }> {
+  try {
+    await authApi.resetPassword({ target: identifier, code, new_password: newPassword });
+    return { success: true };
+  } catch (err: any) {
+    throw new Error(getApiErrorMessage(err, 'Password reset failed. Invalid or expired code.'));
+  }
+}
+
+// ── Backwards-Compatible Aliases for Existing UI Components ──
+export const mockLogin = login;
+export const mockRegister = register;
+export const mockVerifyOtp = (identifier: string, code: string) => verifyOtp(identifier, code, 'verify-account');
+export const mockRequestPasswordReset = requestPasswordReset;
+export const mockResetPassword = (identifier: string, newPassword: string, code = '123456') =>
+  resetPassword(identifier, code, newPassword);

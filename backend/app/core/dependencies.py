@@ -87,26 +87,12 @@ async def get_current_user(
     except Exception:
         pass
 
-    if not user:
-        # Fallback to in-memory user instance from token claims (supports test suites when offline)
-        if role_claim:
-            from beanie import PydanticObjectId
-            from bson import ObjectId
-            fallback_id = PydanticObjectId(user_id) if ObjectId.is_valid(user_id) else PydanticObjectId()
-            return User(
-                id=fallback_id,
-                name=f"User {user_id}",
-                phone="+91 90000 00000",
-                password_hash="mock_hash",
-                role=Role(role_claim),
-                hospital_id=hosp_claim,
-                is_active=True,
-                is_verified=True,
-            )
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User account not found or disabled")
-
-    if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User account not found or disabled")
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User account not found or disabled",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     return user
 
@@ -124,25 +110,12 @@ async def get_optional_user(
         user_id = payload.get("sub")
         if not user_id:
             return None
-        role_claim = payload.get("role")
-        hosp_claim = payload.get("hospital_id")
-        from beanie import PydanticObjectId
         from bson import ObjectId
         user = None
         if ObjectId.is_valid(user_id):
             user = await User.get(user_id)
-        if not user and role_claim:
-            fallback_id = PydanticObjectId(user_id) if ObjectId.is_valid(user_id) else PydanticObjectId()
-            return User(
-                id=fallback_id,
-                name=f"User {user_id}",
-                phone="+91 90000 00000",
-                password_hash="mock_hash",
-                role=Role(role_claim),
-                hospital_id=hosp_claim,
-                is_active=True,
-                is_verified=True,
-            )
+        if not user:
+            user = await User.find_one({"$or": [{"phone": user_id}, {"email": user_id}]})
         return user if user and user.is_active else None
     except Exception:
         return None

@@ -1,7 +1,7 @@
 """ChroniQ Backend Configuration."""
 from functools import lru_cache
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -100,6 +100,12 @@ class Settings(BaseSettings):
         if not v or len(v) < 16:
             raise ValueError("JWT_SECRET must be at least 16 characters long")
         return v
+
+    @field_validator("OTP_DEV_ECHO", mode="before")
+    @classmethod
+    def validate_otp_echo(cls, v: Any, info) -> bool:
+        # In production environments, dev OTP echo must never be active
+        return bool(v)
 
 
 @lru_cache()

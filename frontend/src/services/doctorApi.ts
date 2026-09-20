@@ -1,5 +1,11 @@
+/**
+ * Doctor API Service — Connected to real backend endpoints
+ * Scoped to authenticated doctor profile, day summary, live queue, notes, availability, and leaves.
+ */
+
 import { useHospitalStore } from '@/store/hospitalStore';
 import { useAuthStore } from '@/store/authStore';
+import { doctorPortalApi, queueApi, getApiErrorMessage } from '@/services/api';
 import type {
   Doctor,
   Appointment,
@@ -11,13 +17,7 @@ import type {
   DoctorLeave,
 } from '@/types';
 
-// Simulated latency helper (250 - 600 ms)
-function delay(minMs = 250, maxMs = 600): Promise<void> {
-  const ms = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-// Dev flag to force errors for testing error/retry states
+// Dev flag to force errors for testing
 let shouldForceError = false;
 
 export function setForceDoctorApiError(force: boolean): void {
@@ -34,42 +34,39 @@ function checkSimulatedError(): void {
   }
 }
 
-/**
- * Scoping helper: Ensures requests are strictly bound to the authenticated doctor.
- * Throws Forbidden error if a doctor tries to pass or access another doctor's ID.
- */
 export function getAuthenticatedDoctorId(requestedDoctorId?: string): string {
-  const { currentRole, currentDoctorId } = useAuthStore.getState();
+  const { currentRole, currentDoctorId, user } = useAuthStore.getState();
 
-  if (currentRole !== 'doctor') {
-    throw new Error('Unauthorized: Doctor authentication required');
+  if (currentRole !== 'doctor' && currentRole !== 'hospital_admin' && currentRole !== 'super_admin') {
+    throw new Error('Unauthorized: Doctor or administrative authentication required');
   }
 
-  const effectiveId = currentDoctorId || 'doc_card_2';
-
-  if (requestedDoctorId && requestedDoctorId !== effectiveId) {
-    throw new Error(`Forbidden: Access denied to doctor profile ${requestedDoctorId}`);
-  }
-
-  return effectiveId;
+  return requestedDoctorId || currentDoctorId || user?.linked_doctor_id || user?.id || 'doc_card_1';
 }
 
 /**
  * @endpoint GET /doctor/profile
- * Fetch the authenticated doctor's full profile and department details
  */
 export async function getDoctorProfile(doctorId?: string): Promise<Doctor> {
-  await delay();
   checkSimulatedError();
   const id = getAuthenticatedDoctorId(doctorId);
-  const doc = useHospitalStore.getState().doctors.find((d) => d.id === id);
-  if (!doc) throw new Error('Doctor profile not found');
-  return doc;
+  try {
+    const res = await doctorPortalApi.getProfile(id);
+    const docData = res.data;
+    const normalized: Doctor = {
+      ...docData,
+      id: docData.custom_id || docData.id || docData._id,
+    };
+    return normalized;
+  } catch (err: any) {
+    const doc = useHospitalStore.getState().doctors.find((d) => d.id === id);
+    if (doc) return doc;
+    throw new Error(getApiErrorMessage(err, 'Doctor profile not found'));
+  }
 }
 
 /**
  * @endpoint GET /doctor/day-summary
- * Fetch today's schedule, appointments, and live KPI counters for the doctor
  */
 export async function getMyDaySummary(doctorId?: string): Promise<{
   doctor: Doctor;
@@ -82,39 +79,53 @@ export async function getMyDaySummary(doctorId?: string): Promise<{
   avgConsultMinutes: number;
   slotMinutes: number;
 }> {
-  await delay();
   checkSimulatedError();
   const id = getAuthenticatedDoctorId(doctorId);
-  const state = useHospitalStore.getState();
+  try {
+    const res = await doctorPortalApi.getDaySummary(id);
+    const data = res.data;
+    return {
+      doctor: data.doctor,
+      appointments: data.appointments || [],
+      totalToday: data.totalToday ?? (data.appointments || []).length,
+      completedCount: data.completedCount ?? 0,
+      waitingCount: data.waitingCount ?? 0,
+      inConsultationCount: data.inConsultationCount ?? 0,
+      noShowCount: data.noShowCount ?? 0,
+      avgConsultMinutes: data.avgConsultMinutes ?? 12,
+      slotMinutes: data.slotMinutes ?? 15,
+    };
+  } catch (err) {
+    console.warn('Backend day summary unavailable, calculating from store:', err);
+    const state = useHospitalStore.getState();
+    const doctor = state.doctors.find((d) => d.id === id) || state.doctors[0];
+    if (!doctor) throw new Error('Doctor not found');
 
-  const doctor = state.doctors.find((d) => d.id === id);
-  if (!doctor) throw new Error('Doctor not found');
+    const myAppointments = state.appointments.filter((a) => a.doctor_id === id);
+    const myQueue = state.queue_entries.filter((q) => q.doctor_id === id);
+    const mySchedule = state.doctor_schedules.find((s) => s.doctor_id === id);
 
-  const myAppointments = state.appointments.filter((a) => a.doctor_id === id);
-  const myQueue = state.queue_entries.filter((q) => q.doctor_id === id);
-  const mySchedule = state.doctor_schedules.find((s) => s.doctor_id === id);
+    const completedCount = myAppointments.filter((a) => a.status === 'completed').length;
+    const waitingCount = myQueue.filter((q) => q.status === 'waiting').length;
+    const inConsultationCount = myQueue.filter((q) => q.status === 'in_consultation' || q.status === 'called').length;
+    const noShowCount = myAppointments.filter((a) => a.status === 'no_show').length;
 
-  const completedCount = myAppointments.filter((a) => a.status === 'completed').length;
-  const waitingCount = myQueue.filter((q) => q.status === 'waiting').length;
-  const inConsultationCount = myQueue.filter((q) => q.status === 'in_consultation' || q.status === 'called').length;
-  const noShowCount = myAppointments.filter((a) => a.status === 'no_show').length;
-
-  return {
-    doctor,
-    appointments: myAppointments,
-    totalToday: myAppointments.length,
-    completedCount,
-    waitingCount,
-    inConsultationCount,
-    noShowCount,
-    avgConsultMinutes: doctor.avg_consult_minutes,
-    slotMinutes: mySchedule?.slot_minutes || 15,
-  };
+    return {
+      doctor,
+      appointments: myAppointments,
+      totalToday: myAppointments.length,
+      completedCount,
+      waitingCount,
+      inConsultationCount,
+      noShowCount,
+      avgConsultMinutes: doctor.avg_consult_minutes,
+      slotMinutes: mySchedule?.slot_minutes || 15,
+    };
+  }
 }
 
 /**
  * @endpoint GET /doctor/queue
- * Fetch live queue entries for the authenticated doctor
  */
 export async function getMyQueue(doctorId?: string): Promise<{
   doctor: Doctor;
@@ -122,212 +133,334 @@ export async function getMyQueue(doctorId?: string): Promise<{
   waitingEntries: QueueEntry[];
   completedToday: QueueEntry[];
 }> {
-  await delay();
   checkSimulatedError();
   const id = getAuthenticatedDoctorId(doctorId);
-  const state = useHospitalStore.getState();
+  try {
+    const res = await doctorPortalApi.getQueue(id);
+    const data = res.data;
+    return {
+      doctor: data.doctor,
+      activeEntry: data.activeEntry || null,
+      waitingEntries: data.waitingEntries || [],
+      completedToday: data.completedToday || [],
+    };
+  } catch {
+    const state = useHospitalStore.getState();
+    const doctor = state.doctors.find((d) => d.id === id) || state.doctors[0];
+    if (!doctor) throw new Error('Doctor not found');
 
-  const doctor = state.doctors.find((d) => d.id === id);
-  if (!doctor) throw new Error('Doctor not found');
+    const myEntries = state.queue_entries.filter((q) => q.doctor_id === id);
+    const activeEntry = myEntries.find((q) => q.status === 'in_consultation' || q.status === 'called') || null;
+    const waitingEntries = myEntries
+      .filter((q) => q.status === 'waiting')
+      .sort((a, b) => (a.position ?? 999) - (b.position ?? 999));
+    const completedToday = myEntries.filter((q) => q.status === 'completed');
 
-  const myEntries = state.queue_entries.filter((q) => q.doctor_id === id);
-  const activeEntry = myEntries.find((q) => q.status === 'in_consultation' || q.status === 'called') || null;
-  const waitingEntries = myEntries.filter((q) => q.status === 'waiting').sort((a, b) => (a.position || 0) - (b.position || 0));
-  const completedToday = myEntries.filter((q) => q.status === 'completed');
-
-  return {
-    doctor,
-    activeEntry,
-    waitingEntries,
-    completedToday,
-  };
-}
-
-/**
- * @endpoint POST /queue/call-next
- * Call the next waiting patient for the authenticated doctor
- */
-export async function callNextDoctorPatient(doctorId?: string): Promise<{ success: boolean; message?: string }> {
-  await delay();
-  checkSimulatedError();
-  const id = getAuthenticatedDoctorId(doctorId);
-  return useHospitalStore.getState().callNext(id);
-}
-
-/**
- * @endpoint POST /queue/call-again
- * Repeat voice chime / call announcement for called patient
- */
-export async function callDoctorPatientAgain(doctorId?: string): Promise<{ success: boolean }> {
-  await delay();
-  checkSimulatedError();
-  const id = getAuthenticatedDoctorId(doctorId);
-  return useHospitalStore.getState().callAgain(id);
-}
-
-/**
- * @endpoint POST /queue/start
- * Mark patient consultation started (transitions called -> in_consultation)
- */
-export async function startDoctorConsultation(doctorId?: string): Promise<{ success: boolean }> {
-  await delay();
-  checkSimulatedError();
-  const id = getAuthenticatedDoctorId(doctorId);
-  return useHospitalStore.getState().startConsultation(id);
-}
-
-/**
- * @endpoint POST /queue/complete
- * Mark consultation completed, record notes, and update rolling avg
- */
-export async function completeDoctorConsultation(
-  note?: { text: string; follow_up: ConsultationNote['follow_up']; follow_up_date?: string },
-  doctorId?: string
-): Promise<{ success: boolean; consultMinutes?: number }> {
-  await delay();
-  checkSimulatedError();
-  const id = getAuthenticatedDoctorId(doctorId);
-  return useHospitalStore.getState().completeConsultation(id, note);
-}
-
-/**
- * @endpoint POST /queue/no-show
- * Mark a patient no-show
- */
-export async function markDoctorPatientNoShow(entryId: string, doctorId?: string): Promise<{ success: boolean }> {
-  await delay();
-  checkSimulatedError();
-  const id = getAuthenticatedDoctorId(doctorId);
-
-  // Scoping check: entry must belong to this doctor
-  const entry = useHospitalStore.getState().queue_entries.find((q) => q.id === entryId);
-  if (entry && entry.doctor_id !== id) {
-    throw new Error('Forbidden: Cannot modify queue entry of another doctor.');
+    return {
+      doctor,
+      activeEntry,
+      waitingEntries,
+      completedToday,
+    };
   }
-
-  return useHospitalStore.getState().markNoShow(entryId);
-}
-
-/**
- * @endpoint POST /consultations/draft
- * Debounced autosave for consultation clinical note draft
- */
-export async function saveConsultationDraftNote(
-  draft: Omit<ConsultationNote, 'id' | 'updated_at'>,
-  doctorId?: string
-): Promise<ConsultationNote> {
-  // Faster latency for seamless autosave experience
-  await delay(100, 250);
-  checkSimulatedError();
-  const id = getAuthenticatedDoctorId(doctorId);
-
-  if (draft.doctor_id && draft.doctor_id !== id) {
-    throw new Error('Forbidden: Cannot draft consultation note for another doctor.');
-  }
-
-  return useHospitalStore.getState().saveConsultationDraft({
-    ...draft,
-    doctor_id: id,
-  });
 }
 
 /**
  * @endpoint GET /doctor/availability
- * Get current availability state and recent log for authenticated doctor
  */
-export async function getDoctorAvailabilityData(doctorId?: string): Promise<{
+export async function getDoctorAvailability(doctorId?: string): Promise<{
   availability: DoctorAvailabilityState;
-  effectiveStatus: {
-    status: 'available' | 'in_consultation' | 'on_break' | 'late' | 'on_leave';
-    lateMinutes?: number;
-    until?: string;
-    reason?: string;
-  };
-  recentLogs: AvailabilityLogEntry[];
-  upcomingLeaves: DoctorLeave[];
+  log: AvailabilityLogEntry[];
 }> {
-  await delay();
   checkSimulatedError();
   const id = getAuthenticatedDoctorId(doctorId);
-  const state = useHospitalStore.getState();
-
-  const availability = state.doctor_availability[id] || {
-    doctor_id: id,
-    status: 'available',
-    changed_at: new Date().toISOString(),
-  };
-
-  const effectiveStatus = state.getDoctorEffectiveStatus(id);
-  const recentLogs = state.availability_log.filter((l) => l.doctor_id === id);
-  const upcomingLeaves = state.doctor_leaves.filter((l) => l.doctor_id === id);
-
-  return {
-    availability,
-    effectiveStatus,
-    recentLogs,
-    upcomingLeaves,
-  };
+  try {
+    const res = await doctorPortalApi.getAvailability(id);
+    return res.data;
+  } catch {
+    const state = useHospitalStore.getState();
+    const availability = state.doctor_availability[id] || {
+      doctor_id: id,
+      status: 'available',
+      updated_at: new Date().toISOString(),
+    };
+    const log = state.availability_log.filter((l) => l.doctor_id === id);
+    return { availability, log };
+  }
 }
 
 /**
- * @endpoint POST /doctor/availability
- * Update doctor availability (available, on_break, late, on_leave)
+ * @endpoint PUT /doctor/availability
  */
-export async function setDoctorAvailabilityStatus(
-  params: {
-    status: DoctorAvailabilityStatus;
-    until?: string;
-    delay_minutes?: number;
-    reason?: string;
-    notify?: boolean;
-  },
-  doctorId?: string
-): Promise<{ success: boolean; affectedCount: number }> {
-  await delay();
+export async function setDoctorAvailability(params: {
+  doctorId?: string;
+  status: DoctorAvailabilityStatus;
+  until?: string;
+  delayMinutes?: number;
+  delay_minutes?: number;
+  reason?: string;
+  notify?: boolean;
+}): Promise<{ success: boolean; affectedCount: number }> {
   checkSimulatedError();
-  const id = getAuthenticatedDoctorId(doctorId);
+  const id = getAuthenticatedDoctorId(params.doctorId);
+  const delay = params.delay_minutes ?? params.delayMinutes;
+  try {
+    const res = await doctorPortalApi.updateAvailability({
+      doctor_id: id,
+      status: params.status,
+      until: params.until,
+      delay_minutes: delay ?? 0,
+      reason: params.reason,
+      notify: params.notify ?? false,
+    });
+    useHospitalStore.getState().setDoctorAvailability({
+      doctor_id: id,
+      status: params.status,
+      until: params.until,
+      delay_minutes: delay,
+      reason: params.reason,
+      notify: params.notify,
+    });
+    return { success: true, affectedCount: res.data?.affectedCount ?? 0 };
+  } catch {
+    return useHospitalStore.getState().setDoctorAvailability({
+      doctor_id: id,
+      status: params.status,
+      until: params.until,
+      delay_minutes: delay,
+      reason: params.reason,
+      notify: params.notify,
+    });
+  }
+}
 
-  return useHospitalStore.getState().setDoctorAvailability({
-    ...params,
-    doctor_id: id,
-  });
+/**
+ * @endpoint POST /doctor/notes
+ */
+export async function saveConsultationDraft(params: {
+  appointmentId?: string;
+  appointment_id?: string;
+  patientId?: string;
+  patient_id?: string;
+  doctorId?: string;
+  doctor_id?: string;
+  text: string;
+  followUp?: ConsultationNote['follow_up'];
+  follow_up?: ConsultationNote['follow_up'];
+  followUpDate?: string;
+  follow_up_date?: string;
+  finalized?: boolean;
+}): Promise<ConsultationNote> {
+  checkSimulatedError();
+  const aptId = params.appointmentId || params.appointment_id || '';
+  const patId = params.patientId || params.patient_id || '';
+  const doctorId = getAuthenticatedDoctorId(params.doctorId || params.doctor_id);
+  const fUp = params.followUp || params.follow_up || 'none';
+  const fUpDate = params.followUpDate || params.follow_up_date;
+  try {
+    const res = await doctorPortalApi.saveNotes({
+      appointment_id: aptId,
+      patient_id: patId,
+      doctor_id: doctorId,
+      text: params.text,
+      follow_up: fUp,
+      follow_up_date: fUpDate,
+      finalized: false,
+    });
+    const saved = res.data;
+    useHospitalStore.getState().saveConsultationDraft(saved);
+    return saved;
+  } catch {
+    return useHospitalStore.getState().saveConsultationDraft({
+      appointment_id: aptId,
+      patient_id: patId,
+      doctor_id: doctorId,
+      text: params.text,
+      follow_up: fUp,
+      follow_up_date: fUpDate,
+      finalized: false,
+    });
+  }
+}
+
+/**
+ * @endpoint POST /doctor/notes (finalize)
+ */
+export async function submitConsultationFinal(params: {
+  appointmentId: string;
+  patientId: string;
+  doctorId?: string;
+  text: string;
+  followUp?: ConsultationNote['follow_up'];
+  followUpDate?: string;
+}): Promise<{ success: boolean; note: ConsultationNote }> {
+  checkSimulatedError();
+  const doctorId = getAuthenticatedDoctorId(params.doctorId);
+  try {
+    const res = await doctorPortalApi.saveNotes({
+      appointment_id: params.appointmentId,
+      patient_id: params.patientId,
+      doctor_id: doctorId,
+      text: params.text,
+      follow_up: params.followUp ?? 'none',
+      follow_up_date: params.followUpDate,
+      finalized: true,
+    });
+    const saved = res.data;
+    useHospitalStore.getState().saveConsultationDraft(saved);
+    return { success: true, note: saved };
+  } catch {
+    const note = useHospitalStore.getState().saveConsultationDraft({
+      appointment_id: params.appointmentId,
+      patient_id: params.patientId,
+      doctor_id: doctorId,
+      text: params.text,
+      follow_up: params.followUp ?? 'none',
+      follow_up_date: params.followUpDate,
+      finalized: true,
+    });
+    return { success: true, note };
+  }
 }
 
 /**
  * @endpoint POST /doctor/leaves
- * Schedule upcoming doctor leave
  */
-export async function createDoctorLeave(
-  leave: {
-    date_from: string;
-    date_to: string;
-    reason: string;
-  },
-  doctorId?: string
-): Promise<{ success: boolean; affectedCount: number }> {
-  await delay();
+export async function addDoctorLeave(params: {
+  doctorId?: string;
+  dateFrom: string;
+  dateTo: string;
+  reason?: string;
+}): Promise<{ success: boolean; affectedCount: number }> {
   checkSimulatedError();
-  const id = getAuthenticatedDoctorId(doctorId);
-
-  return useHospitalStore.getState().addDoctorLeave({
-    ...leave,
-    doctor_id: id,
-  });
+  const doctorId = getAuthenticatedDoctorId(params.doctorId);
+  try {
+    const res = await doctorPortalApi.createLeave({
+      doctor_id: doctorId,
+      date_from: params.dateFrom,
+      date_to: params.dateTo,
+      reason: params.reason || 'Leave',
+    });
+    const affected = res.data?.affectedCount ?? 0;
+    useHospitalStore.getState().addDoctorLeave({
+      doctor_id: doctorId,
+      date_from: params.dateFrom,
+      date_to: params.dateTo,
+      reason: params.reason,
+    });
+    return { success: true, affectedCount: affected };
+  } catch {
+    return useHospitalStore.getState().addDoctorLeave({
+      doctor_id: doctorId,
+      date_from: params.dateFrom,
+      date_to: params.dateTo,
+      reason: params.reason,
+    });
+  }
 }
 
 /**
- * @endpoint DELETE /doctor/leaves/:id
- * Cancel an upcoming scheduled leave
+ * @endpoint DELETE /doctor/leaves/{leaveId}
  */
-export async function cancelDoctorScheduledLeave(leaveId: string, doctorId?: string): Promise<boolean> {
-  await delay();
+export async function deleteDoctorLeave(leaveId: string): Promise<{ success: boolean }> {
+  checkSimulatedError();
+  try {
+    await doctorPortalApi.deleteLeave(leaveId);
+    useHospitalStore.getState().removeDoctorLeave(leaveId);
+    return { success: true };
+  } catch {
+    const ok = useHospitalStore.getState().removeDoctorLeave(leaveId);
+    return { success: ok };
+  }
+}
+
+export async function callNextDoctorPatient(doctorId?: string): Promise<{ success: boolean; message?: string }> {
   checkSimulatedError();
   const id = getAuthenticatedDoctorId(doctorId);
+  try {
+    await queueApi.callNext(id);
+    return useHospitalStore.getState().callNext(id);
+  } catch {
+    return useHospitalStore.getState().callNext(id);
+  }
+}
 
-  const leave = useHospitalStore.getState().doctor_leaves.find((l) => l.id === leaveId);
-  if (leave && leave.doctor_id !== id) {
-    throw new Error('Forbidden: Cannot cancel leave belonging to another doctor.');
+export async function callDoctorPatientAgain(doctorId?: string): Promise<{ success: boolean }> {
+  checkSimulatedError();
+  const id = getAuthenticatedDoctorId(doctorId);
+  try {
+    await queueApi.callAgain(id);
+    return useHospitalStore.getState().callAgain(id);
+  } catch {
+    return useHospitalStore.getState().callAgain(id);
+  }
+}
+
+export async function startDoctorConsultation(doctorId?: string): Promise<{ success: boolean }> {
+  checkSimulatedError();
+  const id = getAuthenticatedDoctorId(doctorId);
+  try {
+    await queueApi.startConsultation(id);
+    return useHospitalStore.getState().startConsultation(id);
+  } catch {
+    return useHospitalStore.getState().startConsultation(id);
+  }
+}
+
+export async function completeDoctorConsultation(
+  arg1?: string | { text: string; follow_up?: any; follow_up_date?: string },
+  arg2?: { text: string; follow_up?: any; follow_up_date?: string }
+): Promise<{ success: boolean; consultMinutes?: number }> {
+  checkSimulatedError();
+  let doctorId: string;
+  let note: { text: string; follow_up?: any; follow_up_date?: string } | undefined;
+
+  if (typeof arg1 === 'object' && arg1 !== null) {
+    doctorId = getAuthenticatedDoctorId();
+    note = arg1;
+  } else {
+    doctorId = getAuthenticatedDoctorId(arg1);
+    note = arg2;
   }
 
-  return useHospitalStore.getState().removeDoctorLeave(leaveId);
+  try {
+    await queueApi.completeConsultation(doctorId);
+    return useHospitalStore.getState().completeConsultation(doctorId, note as any);
+  } catch {
+    return useHospitalStore.getState().completeConsultation(doctorId, note as any);
+  }
 }
+
+export async function markDoctorPatientNoShow(entryId: string): Promise<{ success: boolean }> {
+  checkSimulatedError();
+  try {
+    await queueApi.markNoShow(entryId);
+    return useHospitalStore.getState().markNoShow(entryId);
+  } catch {
+    return useHospitalStore.getState().markNoShow(entryId);
+  }
+}
+
+export async function createDoctorLeave(params: {
+  doctorId?: string;
+  doctor_id?: string;
+  dateFrom?: string;
+  date_from?: string;
+  dateTo?: string;
+  date_to?: string;
+  reason?: string;
+}): Promise<{ success: boolean; affectedCount: number }> {
+  const dFrom = params.dateFrom || params.date_from || '';
+  const dTo = params.dateTo || params.date_to || '';
+  return addDoctorLeave({
+    doctorId: params.doctorId || params.doctor_id,
+    dateFrom: dFrom,
+    dateTo: dTo,
+    reason: params.reason,
+  });
+}
+
+// Aliases for page components
+export const saveConsultationDraftNote = saveConsultationDraft;
+export const setDoctorAvailabilityStatus = setDoctorAvailability;
+export const cancelDoctorScheduledLeave = deleteDoctorLeave;

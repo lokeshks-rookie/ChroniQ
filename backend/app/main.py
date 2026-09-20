@@ -43,7 +43,7 @@ async def lifespan(app: FastAPI):
         start_background_tasks()
     else:
         logger.warning(
-            "MongoDB not connected. API will start in offline/mock mode until MONGODB_URI is provided."
+            "MongoDB not connected. Live database features will be unavailable until valid MONGODB_URI is provided."
         )
 
     yield
@@ -66,14 +66,28 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Security Headers Middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    return response
+
+
 # CORS Configuration
 origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
-if "*" not in origins and settings.FRONTEND_URL not in origins:
+if settings.FRONTEND_URL not in origins:
     origins.append(settings.FRONTEND_URL)
+cleaned_origins = [o for o in origins if o != "*"]
+if not cleaned_origins:
+    cleaned_origins = [settings.FRONTEND_URL, "http://localhost:5173", "http://127.0.0.1:5173"]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins if origins else ["*"],
+    allow_origins=cleaned_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

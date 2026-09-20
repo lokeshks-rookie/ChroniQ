@@ -39,6 +39,30 @@ async def setup_test_db():
         db = client[settings.MONGODB_DB_TEST]
         await init_beanie(database=db, document_models=DOCUMENT_MODELS)
         connected = True
+
+    # Seed test users into test database for real DB lookup
+    test_user_specs = [
+        {"name": "Test Super Admin", "email": "test_super_admin", "phone": "+91 90000 00001", "role": Role.SUPER_ADMIN},
+        {"name": "Test Hospital Admin", "email": "test_admin", "phone": "+91 90000 00002", "role": Role.HOSPITAL_ADMIN, "hospital_id": "hosp_city_01"},
+        {"name": "Test Doctor", "email": "test_doc", "phone": "+91 90000 00003", "role": Role.DOCTOR, "hospital_id": "hosp_city_01"},
+        {"name": "Test Patient", "email": "test_patient", "phone": "+91 90000 00004", "role": Role.PATIENT},
+        {"name": "Other Patient", "email": "other_patient", "phone": "+91 90000 00005", "role": Role.PATIENT},
+    ]
+    for u_spec in test_user_specs:
+        existing = await User.find_one(User.email == u_spec["email"])
+        if not existing:
+            u = User(
+                name=u_spec["name"],
+                email=u_spec["email"],
+                phone=u_spec["phone"],
+                role=u_spec["role"],
+                hospital_id=u_spec.get("hospital_id"),
+                password_hash=hash_password("test_pass"),
+                is_active=True,
+                is_verified=True,
+            )
+            await u.insert()
+
     yield connected
     await close_db()
 
@@ -69,3 +93,8 @@ def test_doctor_token() -> str:
 @pytest.fixture
 def test_patient_token() -> str:
     return create_access_token(data={"sub": "test_patient", "role": Role.PATIENT.value})
+
+
+@pytest.fixture
+def test_other_patient_token() -> str:
+    return create_access_token(data={"sub": "other_patient", "role": Role.PATIENT.value})

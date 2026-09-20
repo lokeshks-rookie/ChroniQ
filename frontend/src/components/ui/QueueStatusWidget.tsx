@@ -3,6 +3,8 @@ import { Activity, Clock, Users, ArrowRight } from 'lucide-react';
 import { mockGetAppointmentById, mockQueueStream, type AppointmentStatus } from '@/data/mockData';
 import { Link } from 'react-router-dom';
 
+import { queueApi } from '@/services/api';
+
 interface QueueStatusWidgetProps {
   appointmentId: string;
   compact?: boolean;
@@ -10,7 +12,7 @@ interface QueueStatusWidgetProps {
 
 /**
  * Shared live-queue status widget.
- * Uses mockQueueStream to simulate live updates.
+ * Connected to backend live queue API.
  */
 export default function QueueStatusWidget({
   appointmentId,
@@ -21,30 +23,46 @@ export default function QueueStatusWidget({
   const [status, setStatus] = useState<AppointmentStatus | null>(null);
   const [token, setToken] = useState<string>('');
   const [checkInTime, setCheckInTime] = useState<string>('');
-  const [room, setRoom] = useState<string>('Room 4'); // mock room
+  const [room, setRoom] = useState<string>('Consultation Room');
 
   useEffect(() => {
-    // Initial fetch
-    const apt = mockGetAppointmentById(appointmentId);
-    if (apt) {
-      setPosition(apt.queuePosition || 0);
-      setEta(apt.eta || '');
-      setStatus(apt.status);
-      setToken(apt.token || '');
-      // Mock check-in time 30 mins ago
-      const d = new Date();
-      d.setMinutes(d.getMinutes() - 30);
-      setCheckInTime(d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-    }
+    let isMounted = true;
 
-    // Subscribe to mock stream
-    const unsubscribe = mockQueueStream(appointmentId, (data) => {
-      setPosition(data.position);
-      setEta(data.eta);
-      setStatus(data.status);
-    });
+    const fetchStatus = async () => {
+      try {
+        const res = await queueApi.getQueueStatus(appointmentId);
+        const data = res.data;
+        if (data && isMounted) {
+          setPosition(data.position ?? 0);
+          setEta(data.eta_minutes != null ? `~${data.eta_minutes} min` : '');
+          setStatus(data.status as AppointmentStatus);
+          if (data.token) setToken(data.token);
+          if (data.checked_in_at) {
+            const d = new Date(data.checked_in_at);
+            setCheckInTime(d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+          }
+          return;
+        }
+      } catch (e) {
+        // fallback to local lookup
+      }
 
-    return () => unsubscribe();
+      const apt = mockGetAppointmentById(appointmentId);
+      if (apt && isMounted) {
+        setPosition(apt.queuePosition || 0);
+        setEta(apt.eta || '');
+        setStatus(apt.status);
+        setToken(apt.token || '');
+      }
+    };
+
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 4000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [appointmentId]);
 
   if (!status) return null;

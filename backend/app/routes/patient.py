@@ -31,13 +31,33 @@ router = APIRouter(tags=["Patient Services"])
 
 
 # ==========================================
-# Family Members
+# Patient Profile & Family Members
 # ==========================================
 
+@router.get("/patients/me/profile")
+@router.get("/patient/profile")
+async def get_patient_profile(current_user: User = Depends(get_current_user)):
+    """Get profile of current logged-in patient."""
+    return {
+        "id": str(current_user.id),
+        "name": current_user.name,
+        "phone": current_user.phone,
+        "email": current_user.email,
+        "age": current_user.age,
+        "gender": current_user.gender,
+        "preferred_language": current_user.preferred_language,
+        "role": current_user.role,
+        "created_at": current_user.created_at,
+    }
+
+
+@router.get("/patients/me/family", response_model=List[dict])
 @router.get("/family-members", response_model=List[dict])
 async def get_family_members(current_user: User = Depends(get_current_user)):
     """List family members for current patient."""
-    members = await FamilyMember.find(FamilyMember.user_id == str(current_user.id)).to_list()
+    members = await FamilyMember.find(
+        {"$or": [{"user_id": current_user.id}, {"user_id": str(current_user.id)}]}
+    ).to_list()
     return [
         {
             "id": str(m.id),
@@ -59,7 +79,9 @@ async def add_family_member(
 ):
     """Add a new dependent family member (max allowed configured by policy)."""
     settings = get_settings()
-    existing_count = await FamilyMember.find(FamilyMember.user_id == str(current_user.id)).count()
+    existing_count = await FamilyMember.find(
+        {"$or": [{"user_id": current_user.id}, {"user_id": str(current_user.id)}]}
+    ).count()
     if existing_count >= settings.MAX_FAMILY_MEMBERS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
