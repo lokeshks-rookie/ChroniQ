@@ -461,3 +461,5 @@ export const CheckInPage: React.FC = () => {
     </div>
   );
 };
+
+export default CheckInPage;

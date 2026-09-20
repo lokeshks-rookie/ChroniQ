@@ -525,3 +525,5 @@ export const WalkInPage: React.FC = () => {
     </div>
   );
 };
+
+export default WalkInPage;

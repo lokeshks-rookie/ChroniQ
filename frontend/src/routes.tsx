@@ -1,30 +1,68 @@
 import { Suspense, lazy } from 'react';
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter, Navigate, RouterProvider, useParams } from 'react-router-dom';
+
+// Layouts
+import PublicLayout from '@/layouts/PublicLayout';
+import AppLayout from '@/layouts/AppLayout';
 import { AdminLayout } from '@/components/layout/AdminLayout';
+import { DisplayLayout } from '@/components/layout/DisplayLayout';
+import { KioskLayout } from '@/components/layout/KioskLayout';
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
 import { Skeleton } from '@/components/ui/Skeleton';
 
 // Page Loading Skeleton Fallback
 const PageLoadingFallback = () => (
-  <div className="space-y-6 p-4">
+  <div className="space-y-6 p-6 min-h-[50vh]">
     <div className="space-y-2">
       <Skeleton className="h-4 w-32" />
       <Skeleton className="h-8 w-64" />
       <Skeleton className="h-4 w-96" />
     </div>
-    <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mt-6">
       <Skeleton className="h-28 rounded-card" />
       <Skeleton className="h-28 rounded-card" />
       <Skeleton className="h-28 rounded-card" />
       <Skeleton className="h-28 rounded-card" />
     </div>
-    <Skeleton className="h-96 rounded-card w-full" />
+    <Skeleton className="h-96 rounded-card w-full mt-6" />
   </div>
 );
 
-// Code-split pages with React.lazy
+// ── Section 4.1: Public Pages ─────────────────────────────────
+const LandingPage = lazy(() => import('@/pages/Landing/LandingPage'));
+const HospitalsPage = lazy(() => import('@/pages/hospitals/HospitalsPage'));
+const HospitalDetailPage = lazy(() => import('@/pages/hospitals/HospitalDetailPage'));
+const DoctorProfilePage = lazy(() => import('@/pages/doctors/DoctorProfilePage'));
+
+// ── Section 4.1: Auth Pages ───────────────────────────────────
+const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
+const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage'));
+const VerifyOtpPage = lazy(() => import('@/pages/auth/VerifyOtpPage'));
+const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage'));
+
+// ── Section 4.2: Patient Portal (Pages 10–19) ─────────────────
+const PatientDashboard = lazy(() => import('@/pages/app/PatientDashboard'));
+const SearchPage = lazy(() => import('@/pages/app/SearchPage'));
+const BookingSlotPage = lazy(() => import('@/pages/app/BookingSlotPage'));
+const BookingDetailsPage = lazy(() => import('@/pages/app/BookingDetailsPage'));
+const BookingConfirmPage = lazy(() => import('@/pages/app/BookingConfirmPage'));
+const BookingSuccessPage = lazy(() => import('@/pages/app/BookingSuccessPage'));
+const AppointmentsPageApp = lazy(() => import('@/pages/app/AppointmentsPage'));
+const AppointmentDetailPage = lazy(() => import('@/pages/app/AppointmentDetailPage'));
+const QueueTrackerPage = lazy(() => import('@/pages/app/QueueTrackerPage'));
+const NotificationsPage = lazy(() => import('@/pages/app/NotificationsPage'));
+
+// ── Section 4.2: Patient Portal (Pages 20–24) ─────────────────
+const ProfilePage = lazy(() => import('@/pages/patient/ProfilePage').then((m) => ({ default: m.ProfilePage })));
+const FamilyPage = lazy(() => import('@/pages/patient/FamilyPage').then((m) => ({ default: m.FamilyPage })));
+const RecordsPage = lazy(() => import('@/pages/patient/RecordsPage').then((m) => ({ default: m.RecordsPage })));
+const ReviewPage = lazy(() => import('@/pages/patient/ReviewPage').then((m) => ({ default: m.ReviewPage })));
+const HelpPage = lazy(() => import('@/pages/patient/HelpPage').then((m) => ({ default: m.HelpPage })));
+
+// ── Section 4.3: Hospital Admin Dashboard (Pages 25–40) ───────
 const DashboardPage = lazy(() => import('@/pages/admin/DashboardPage').then((m) => ({ default: m.DashboardPage })));
-const AppointmentsPage = lazy(() => import('@/pages/admin/AppointmentsPage').then((m) => ({ default: m.AppointmentsPage })));
+const AppointmentsPageAdmin = lazy(() => import('@/pages/admin/AppointmentsPage').then((m) => ({ default: m.AppointmentsPage })));
 const QueuePage = lazy(() => import('@/pages/admin/QueuePage').then((m) => ({ default: m.QueuePage })));
 const WalkInPage = lazy(() => import('@/pages/admin/WalkInPage').then((m) => ({ default: m.WalkInPage })));
 const CheckInPage = lazy(() => import('@/pages/admin/CheckInPage').then((m) => ({ default: m.CheckInPage })));
@@ -38,85 +76,197 @@ const SettingsPage = lazy(() => import('@/pages/admin/SettingsPage').then((m) =>
 const BroadcastsPage = lazy(() => import('@/pages/admin/BroadcastsPage').then((m) => ({ default: m.BroadcastsPage })));
 const UiKitPreviewPage = lazy(() => import('@/pages/admin/UiKitPreviewPage').then((m) => ({ default: m.UiKitPreviewPage })));
 
-// Doctor Pages
+// ── Section 4.4: Doctor Views (Pages 41–43) ───────────────────
 const MyDayPage = lazy(() => import('@/pages/doctor/MyDayPage').then((m) => ({ default: m.MyDayPage })));
 const MyQueuePage = lazy(() => import('@/pages/doctor/MyQueuePage').then((m) => ({ default: m.MyQueuePage })));
 const DoctorAvailabilityPage = lazy(() => import('@/pages/doctor/DoctorAvailabilityPage').then((m) => ({ default: m.DoctorAvailabilityPage })));
 
-import { DisplayLayout } from '@/components/layout/DisplayLayout';
-import { KioskLayout } from '@/components/layout/KioskLayout';
-import { PatientLayout } from '@/components/layout/PatientLayout';
+// ── Section 4.5: Super Admin Console ──────────────────────────
+const SuperDashboard = lazy(() => import('@/pages/super/SuperDashboard'));
+const SuperHospitalsPage = lazy(() => import('@/pages/super/SuperHospitalsPage'));
 
-// Special Screens (Section 4.6)
+// ── Section 4.6: Special Screens ──────────────────────────────
 const DisplayBoardPage = lazy(() => import('@/pages/special/DisplayBoardPage').then((m) => ({ default: m.DisplayBoardPage })));
 const KioskCheckInPage = lazy(() => import('@/pages/special/KioskCheckInPage').then((m) => ({ default: m.KioskCheckInPage })));
 
-// Patient Pages (Section 4.2, Pages 20–24)
-const ProfilePage = lazy(() => import('@/pages/patient/ProfilePage').then((m) => ({ default: m.ProfilePage })));
-const FamilyPage = lazy(() => import('@/pages/patient/FamilyPage').then((m) => ({ default: m.FamilyPage })));
-const RecordsPage = lazy(() => import('@/pages/patient/RecordsPage').then((m) => ({ default: m.RecordsPage })));
-const ReviewPage = lazy(() => import('@/pages/patient/ReviewPage').then((m) => ({ default: m.ReviewPage })));
-const HelpPage = lazy(() => import('@/pages/patient/HelpPage').then((m) => ({ default: m.HelpPage })));
-
-import { useAuthStore } from '@/store/authStore';
-import { useParams } from 'react-router-dom';
-
-const RootRedirect = () => {
-  const role = useAuthStore((s) => s.currentRole);
-  if (role === 'doctor') return <Navigate to="/doctor" replace />;
-  if (role === 'patient') return <Navigate to="/app/profile" replace />;
-  return <Navigate to="/admin" replace />;
-};
+// ── Error / 404 Page ──────────────────────────────────────────
+const NotFoundPage = lazy(() => import('@/pages/errors/NotFoundPage'));
 
 const DisplayRedirect = () => {
   const { hospitalId } = useParams();
-  return <Navigate to={`/display/${hospitalId}/all`} replace />;
+  return <Navigate to={`/display/${hospitalId || 'hosp_city_01'}/all`} replace />;
 };
 
 export const router = createBrowserRouter([
+  // ── 1. Public routes (with Navbar + Footer) ─────────────────
   {
-    path: '/',
-    element: <RootRedirect />,
-  },
-  {
-    path: '/display/:hospitalId',
-    element: <DisplayRedirect />,
-  },
-  {
-    path: '/display/:hospitalId/:deptId',
-    element: <DisplayLayout />,
+    element: <PublicLayout />,
     children: [
       {
-        index: true,
+        path: '/',
         element: (
           <Suspense fallback={<PageLoadingFallback />}>
-            <DisplayBoardPage />
+            <LandingPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: '/hospitals',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <HospitalsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: '/hospitals/:id',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <HospitalDetailPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: '/doctors/:id',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <DoctorProfilePage />
           </Suspense>
         ),
       },
     ],
   },
+
+  // ── 2. Auth routes ──────────────────────────────────────────
   {
-    path: '/checkin/:hospitalId',
-    element: <KioskLayout />,
     children: [
       {
-        index: true,
+        path: '/login',
         element: (
           <Suspense fallback={<PageLoadingFallback />}>
-            <KioskCheckInPage />
+            <LoginPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: '/register',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <RegisterPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: '/verify-otp',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <VerifyOtpPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: '/forgot-password',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <ForgotPasswordPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: '/reset-password',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <ResetPasswordPage />
           </Suspense>
         ),
       },
     ],
   },
+
+  // ── 3. Patient Portal (Pages 10–24) ─────────────────────────
   {
     path: '/app',
-    element: <PatientLayout />,
+    element: <AppLayout />,
     children: [
       {
         index: true,
-        element: <Navigate to="/app/profile" replace />,
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <PatientDashboard />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'search',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <SearchPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'book/:doctorId',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <BookingSlotPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'book/details',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <BookingDetailsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'book/confirm',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <BookingConfirmPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'book/success',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <BookingSuccessPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'appointments',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <AppointmentsPageApp />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'appointments/:id',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <AppointmentDetailPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'queue/:appointmentId',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <QueueTrackerPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'notifications',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <NotificationsPage />
+          </Suspense>
+        ),
       },
       {
         path: 'profile',
@@ -158,64 +308,10 @@ export const router = createBrowserRouter([
           </Suspense>
         ),
       },
-      {
-        path: 'search',
-        element: <Navigate to="/app/records" replace />,
-      },
-      {
-        path: 'appointments',
-        element: <Navigate to="/app/records" replace />,
-      },
-      {
-        path: 'notifications',
-        element: <Navigate to="/app/profile" replace />,
-      },
-      {
-        path: '*',
-        element: <Navigate to="/app/profile" replace />,
-      },
     ],
   },
-  {
-    path: '/doctor',
-    element: <AdminLayout />,
-    children: [
-      {
-        index: true,
-        element: (
-          <Suspense fallback={<PageLoadingFallback />}>
-            <ProtectedRoute allowedRoles={['doctor']}>
-              <MyDayPage />
-            </ProtectedRoute>
-          </Suspense>
-        ),
-      },
-      {
-        path: 'queue',
-        element: (
-          <Suspense fallback={<PageLoadingFallback />}>
-            <ProtectedRoute allowedRoles={['doctor']}>
-              <MyQueuePage />
-            </ProtectedRoute>
-          </Suspense>
-        ),
-      },
-      {
-        path: 'availability',
-        element: (
-          <Suspense fallback={<PageLoadingFallback />}>
-            <ProtectedRoute allowedRoles={['doctor']}>
-              <DoctorAvailabilityPage />
-            </ProtectedRoute>
-          </Suspense>
-        ),
-      },
-      {
-        path: '*',
-        element: <Navigate to="/doctor" replace />,
-      },
-    ],
-  },
+
+  // ── 4. Hospital Admin Dashboard (Pages 25–40) ───────────────
   {
     path: '/admin',
     element: <AdminLayout />,
@@ -235,7 +331,7 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={<PageLoadingFallback />}>
             <ProtectedRoute capability="manage_appointments">
-              <AppointmentsPage />
+              <AppointmentsPageAdmin />
             </ProtectedRoute>
           </Suspense>
         ),
@@ -262,6 +358,16 @@ export const router = createBrowserRouter([
       },
       {
         path: 'checkin',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <ProtectedRoute capability="check_in">
+              <CheckInPage />
+            </ProtectedRoute>
+          </Suspense>
+        ),
+      },
+      {
+        path: 'check-in',
         element: (
           <Suspense fallback={<PageLoadingFallback />}>
             <ProtectedRoute capability="check_in">
@@ -351,6 +457,16 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: 'broadcasts',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <ProtectedRoute capability="send_broadcasts">
+              <BroadcastsPage />
+            </ProtectedRoute>
+          </Suspense>
+        ),
+      },
+      {
         path: '_kit',
         element: (
           <Suspense fallback={<PageLoadingFallback />}>
@@ -364,4 +480,146 @@ export const router = createBrowserRouter([
       },
     ],
   },
+
+  // ── 5. Doctor Views (Pages 41–43) ───────────────────────────
+  {
+    path: '/doctor',
+    element: <AdminLayout />,
+    children: [
+      {
+        index: true,
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <ProtectedRoute allowedRoles={['doctor']}>
+              <MyDayPage />
+            </ProtectedRoute>
+          </Suspense>
+        ),
+      },
+      {
+        path: 'my-day',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <ProtectedRoute allowedRoles={['doctor']}>
+              <MyDayPage />
+            </ProtectedRoute>
+          </Suspense>
+        ),
+      },
+      {
+        path: 'queue',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <ProtectedRoute allowedRoles={['doctor']}>
+              <MyQueuePage />
+            </ProtectedRoute>
+          </Suspense>
+        ),
+      },
+      {
+        path: 'availability',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <ProtectedRoute allowedRoles={['doctor']}>
+              <DoctorAvailabilityPage />
+            </ProtectedRoute>
+          </Suspense>
+        ),
+      },
+      {
+        path: '*',
+        element: <Navigate to="/doctor" replace />,
+      },
+    ],
+  },
+
+  // ── 6. Super Admin Console (Pages 46–47) ────────────────────
+  {
+    path: '/super',
+    element: <AdminLayout />,
+    children: [
+      {
+        index: true,
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <SuperDashboard />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'hospitals',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <SuperHospitalsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: '*',
+        element: <Navigate to="/super" replace />,
+      },
+    ],
+  },
+
+  // ── 7. Special Displays (Section 4.6) ───────────────────────
+  {
+    path: '/display/:hospitalId',
+    element: <DisplayRedirect />,
+  },
+  {
+    path: '/display/:hospitalId/:deptId',
+    element: <DisplayLayout />,
+    children: [
+      {
+        index: true,
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <DisplayBoardPage />
+          </Suspense>
+        ),
+      },
+    ],
+  },
+  {
+    path: '/checkin/:hospitalId',
+    element: <KioskLayout />,
+    children: [
+      {
+        index: true,
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <KioskCheckInPage />
+          </Suspense>
+        ),
+      },
+    ],
+  },
+  {
+    path: '/kiosk/:hospitalId',
+    element: <KioskLayout />,
+    children: [
+      {
+        index: true,
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <KioskCheckInPage />
+          </Suspense>
+        ),
+      },
+    ],
+  },
+
+  // ── 8. 404 Catch-All ────────────────────────────────────────
+  {
+    path: '*',
+    element: (
+      <Suspense fallback={<PageLoadingFallback />}>
+        <NotFoundPage />
+      </Suspense>
+    ),
+  },
 ]);
+
+export default function Routes() {
+  return <RouterProvider router={router} />;
+}

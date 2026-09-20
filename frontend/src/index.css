@@ -1,0 +1,120 @@
+/* ============================================================
+   ChroniQ Design System — Tailwind CSS v4 CSS-first config
+   Brand colors sampled from medical_queue_brand_guidelines.md
+   ============================================================ */
+
+/* Google Fonts — Inter (must come before @import tailwindcss) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  /* ── Core brand palette ── */
+  --color-ink:          #190801;
+  --color-ink-light:    #301003;
+  --color-accent:       #9A6E56;
+  --color-accent-dark:  #8A5E46;
+  --color-base:         #FDF9F0;
+  --color-cream:        #B88C70;
+  --color-muted:        #694436;
+  --color-rust:         #552C1B;
+  --color-umber:        #5E4A3C;
+  --color-maroon:       #220400;
+
+  /* ── Functional / semantic states ── */
+  --color-success:      #2E7D46;
+  --color-danger:       #C0392B;
+  --color-info:         #3B5BA5;
+
+  /* ── Typography ── */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* ── Spacing scale extensions ── */
+  --spacing-18: 4.5rem;
+  --spacing-22: 5.5rem;
+
+  /* ── Border radius ── */
+  --radius-card: 14px;
+  --radius-pill: 999px;
+}
+
+/* ── Global resets & base ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-base);
+  color: var(--color-ink);
+  line-height: 1.6;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--color-base); }
+::-webkit-scrollbar-thumb { background: var(--color-cream); border-radius: 99px; }
+
+/* ── Selection ── */
+::selection {
+  background: var(--color-accent);
+  color: var(--color-base);
+}
+
+/* ── Focus outline ── */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+/* ── Typography utilities ── */
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-accent);
+}
+
+.eyebrow-light {
+  color: var(--color-cream);
+}
+
+/* ── Horizontal scroll snap helper ── */
+.scroll-snap-x {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.scroll-snap-x::-webkit-scrollbar { display: none; }
+.scroll-snap-item {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+}
+
+/* ── Section rhythm ── */
+.section-pad {
+  padding-top: 96px;
+  padding-bottom: 96px;
+}
+@media (max-width: 768px) {
+  .section-pad {
+    padding-top: 56px;
+    padding-bottom: 56px;
+  }
+}
