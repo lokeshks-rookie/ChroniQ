@@ -221,6 +221,28 @@ async def google_auth(req: GoogleAuthRequest):
             detail="Server misconfiguration: GOOGLE_CLIENT_SECRET is missing.",
         )
 
+    # ── 1b. Validate redirect_uri origin ────────────────────────────────
+    allowed_origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
+    if settings.FRONTEND_URL not in allowed_origins:
+        allowed_origins.append(settings.FRONTEND_URL)
+    # Always allow localhost for development
+    for dev_origin in ["http://localhost:5173", "http://127.0.0.1:5173"]:
+        if dev_origin not in allowed_origins:
+            allowed_origins.append(dev_origin)
+
+    redirect_origin_valid = any(req.redirect_uri.startswith(origin) for origin in allowed_origins)
+    if not redirect_origin_valid:
+        logger.warning(
+            f"Google OAuth redirect_uri origin rejected: {req.redirect_uri} "
+            f"(allowed: {allowed_origins})"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid redirect_uri origin. It must match an allowed frontend origin.",
+        )
+
+    logger.info(f"Google OAuth code exchange starting. redirect_uri={req.redirect_uri}")
+
     # ── 2. Exchange authorization code for tokens ─────────────────────────
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
@@ -235,6 +257,7 @@ async def google_auth(req: GoogleAuthRequest):
                 },
             )
     except httpx.RequestError as exc:
+        logger.error(f"Google OAuth token exchange network error: {exc}")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Could not connect to Google authentication service: {exc}",
@@ -242,6 +265,7 @@ async def google_auth(req: GoogleAuthRequest):
 
     if token_resp.status_code != 200:
         error_body = token_resp.text
+        logger.error(f"Google OAuth token exchange failed (HTTP {token_resp.status_code}): {error_body}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Google token exchange failed: {error_body}",

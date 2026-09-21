@@ -3,12 +3,9 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Bell,
   Clock,
-  RotateCcw,
   Menu,
   X,
-  UserCheck,
   ChevronDown,
-  Stethoscope,
   ExternalLink,
   Copy,
   Check,
@@ -22,17 +19,17 @@ import { useHospitalStore } from '@/store/hospitalStore';
 import { useUiStore } from '@/store/uiStore';
 import { getLiveClockIST } from '@/lib/time';
 import { ToastContainer } from '@/components/ui/ToastContainer';
-import { LiveIndicator } from '@/components/ui/LiveIndicator';
+
 import { Avatar } from '@/components/ui/Avatar';
 import { DoctorAvailabilityChip } from '@/components/ui/StatusBadge';
 import { TiltCard } from '@/components/ui/tilt-card';
-import { Dropdown, DropdownOption } from '@/components/ui/Dropdown';
+import { Dropdown } from '@/components/ui/Dropdown';
 import { cn } from '@/lib/utils';
 
 export const AdminLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentRole, currentDoctorId, setRole, setDoctorId, hasCapability, user, clearAuth } = useAuthStore();
+  const { currentRole, currentDoctorId, setDoctorId, hasCapability, user, clearAuth } = useAuthStore();
   const handleLogout = () => {
     clearAuth();
     navigate('/login');
@@ -496,80 +493,34 @@ export const AdminLayout: React.FC = () => {
                 )}
               </div>
 
-              {/* User / Demo Role Switcher */}
+              {/* User Profile Menu */}
               <div className="flex items-center gap-2">
-                {currentRole === 'doctor' && (
-                  <Dropdown
-                    value={currentDoctorId || 'doc_card_2'}
-                    onChange={(val) => {
-                      setDoctorId(val);
-                      setRole('doctor', val);
-                    }}
-                    options={doctors.map((d) => ({
-                      value: d.id,
-                      label: d.name,
-                      sublabel: departments.find((dep) => dep.id === d.department_id)?.name || 'General',
-                    }))}
-                    width="w-64"
-                    align="right"
-                    triggerClassName="text-xs h-8"
-                  />
-                )}
-
                 <Dropdown
-                  value={currentRole}
+                  value="profile"
                   align="right"
-                  width="w-64"
+                  width="w-56"
                   options={[
                     {
-                      value: 'hospital_admin',
-                      label: 'Hospital Admin',
-                      sublabel: 'Operations & Management',
-                      icon: <UserCheck className="w-3.5 h-3.5" />,
-                      onClick: () => {
-                        setRole('hospital_admin');
-                        navigate('/admin');
-                      },
-                    },
-                    {
-                      value: 'receptionist',
-                      label: 'Receptionist',
-                      sublabel: 'Desk & Check-in',
-                      icon: <UserCheck className="w-3.5 h-3.5" />,
-                      onClick: () => {
-                        setRole('receptionist');
-                        navigate('/admin');
-                      },
-                    },
-                    {
-                      value: 'doctor',
-                      label: 'Doctor (Specialist)',
-                      sublabel: currentDoctor?.name || 'Specialist Queue',
-                      icon: <Stethoscope className="w-3.5 h-3.5" />,
-                      onClick: () => {
-                        setRole('doctor', currentDoctorId || 'doc_card_2');
-                        navigate('/doctor');
-                      },
-                    },
-                    {
-                      value: 'patient',
-                      label: 'Patient (Portal)',
-                      sublabel: 'Consumer Experience',
+                      value: 'profile_info',
+                      label: user?.name || 'User',
+                      sublabel: currentRole === 'doctor'
+                        ? 'Doctor'
+                        : currentRole === 'hospital_admin'
+                        ? 'Hospital Admin'
+                        : currentRole === 'receptionist'
+                        ? 'Receptionist'
+                        : currentRole === 'super_admin'
+                        ? 'Super Admin'
+                        : 'Staff',
                       icon: <User className="w-3.5 h-3.5" />,
-                      onClick: () => {
-                        setRole('patient');
-                        navigate('/app/profile');
-                      },
                     },
                     {
-                      value: 'reset',
-                      label: 'Reset demo data',
-                      icon: <RotateCcw className="w-3.5 h-3.5" />,
+                      value: 'logout',
+                      label: 'Log out',
+                      icon: <LogOut className="w-3.5 h-3.5" />,
                       destructive: true,
                       divider: true,
-                      onClick: () => {
-                        resetDemoData();
-                      },
+                      onClick: handleLogout,
                     },
                   ]}
                   renderTrigger={({ toggle, isOpen, ref }) => (
@@ -585,15 +536,11 @@ export const AdminLayout: React.FC = () => {
                       )}
                     >
                       <div className="w-5 h-5 rounded-full bg-cream text-ink flex items-center justify-center font-bold text-[9px] shrink-0">
-                        {currentRole === 'doctor' ? 'DR' : currentRole === 'hospital_admin' ? 'HA' : 'RC'}
+                        {(user?.name || 'U').charAt(0).toUpperCase()}
                       </div>
                       <div className="hidden sm:block text-left">
                         <div className="font-medium truncate max-w-[120px] leading-tight">
-                          {currentRole === 'doctor'
-                            ? (currentDoctor?.name || 'Doctor')
-                            : currentRole === 'hospital_admin'
-                            ? 'Admin'
-                            : 'Reception'}
+                          {user?.name || 'User'}
                         </div>
                       </div>
                       <ChevronDown

@@ -78,6 +78,24 @@ export default function RegisterPage() {
         <p className="auth-form-sub">Join ChroniQ to book and manage your appointments.</p>
       </div>
 
+      {/* Info: Registration is for patients only */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '10px',
+        padding: '12px 14px',
+        borderRadius: '10px',
+        fontSize: '12px',
+        fontWeight: 500,
+        lineHeight: 1.5,
+        background: 'rgba(154, 110, 86, 0.06)',
+        border: '1px solid rgba(154, 110, 86, 0.15)',
+        color: 'var(--color-text-muted, var(--color-muted, #694436))',
+        marginBottom: '8px',
+      }}>
+        <span>Patient registration only — Staff, doctor, and admin accounts are created by your hospital administrator.</span>
+      </div>
+
       {/* Google OAuth — primary CTA */}
       <GoogleAuthButton mode="register" />
 

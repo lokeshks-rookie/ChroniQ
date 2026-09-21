@@ -8,19 +8,16 @@ import {
   User,
   ChevronLeft,
   ChevronDown,
-
   Users,
   FileText,
   HelpCircle,
-  Stethoscope,
-  ShieldCheck,
-  Settings,
+  LogOut,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { usePatientStore } from '@/store/patientStore';
 import { ToastContainer } from '@/components/ui/ToastContainer';
 import { Avatar } from '@/components/ui/Avatar';
-import { Dropdown, DropdownOption } from '@/components/ui/Dropdown';
+import { Dropdown } from '@/components/ui/Dropdown';
 import { cn } from '@/lib/utils';
 
 // ==========================================
@@ -79,16 +76,20 @@ function getPageTitle(pathname: string): string {
 export const PatientLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentRole, setRole } = useAuthStore();
+  const { clearAuth } = useAuthStore();
   const patient = usePatientStore((s) => s.patient);
   const fetchPatientData = usePatientStore((s) => s.fetchPatientData);
 
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
-  const [roleSwitcherOpen, setRoleSwitcherOpen] = useState(false);
   const avatarMenuRef = useRef<HTMLDivElement>(null);
 
   const pageTitle = getPageTitle(location.pathname);
   const isSubPage = !['/app', '/app/search', '/app/appointments', '/app/notifications', '/app/profile'].includes(location.pathname);
+
+  const handleLogout = () => {
+    clearAuth();
+    navigate('/login');
+  };
 
   // Fetch live patient data from backend
   useEffect(() => {
@@ -98,7 +99,6 @@ export const PatientLayout: React.FC = () => {
   // Close menus on route change
   useEffect(() => {
     setAvatarMenuOpen(false);
-    setRoleSwitcherOpen(false);
   }, [location.pathname]);
 
   // Close avatar menu on outside click
@@ -106,28 +106,11 @@ export const PatientLayout: React.FC = () => {
     function handleClick(e: MouseEvent) {
       if (avatarMenuRef.current && !avatarMenuRef.current.contains(e.target as Node)) {
         setAvatarMenuOpen(false);
-        setRoleSwitcherOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
-
-  // Auto-switch to patient role when entering the patient portal
-  useEffect(() => {
-    if (currentRole !== 'patient') {
-      setRole('patient');
-    }
-  }, [currentRole, setRole]);
-
-  const handleRoleSwitch = (role: 'hospital_admin' | 'receptionist' | 'doctor' | 'patient') => {
-    setRole(role);
-    setRoleSwitcherOpen(false);
-    setAvatarMenuOpen(false);
-    if (role === 'doctor') navigate('/doctor');
-    else if (role === 'patient') navigate('/app');
-    else navigate('/admin');
-  };
 
   return (
     <div className="min-h-screen bg-base flex flex-col">
@@ -164,17 +147,12 @@ export const PatientLayout: React.FC = () => {
                 onClick: () => navigate(item.path),
               })),
               {
-                value: 'role_admin',
-                label: 'Switch to Admin',
-                icon: <ShieldCheck className="w-4 h-4 text-accent" />,
+                value: 'logout',
+                label: 'Log out',
+                icon: <LogOut className="w-4 h-4" strokeWidth={1.75} />,
                 divider: true,
-                onClick: () => handleRoleSwitch('hospital_admin'),
-              },
-              {
-                value: 'role_doctor',
-                label: 'Switch to Doctor',
-                icon: <Stethoscope className="w-4 h-4 text-accent" />,
-                onClick: () => handleRoleSwitch('doctor'),
+                destructive: true,
+                onClick: handleLogout,
               },
             ]}
             renderTrigger={({ toggle, ref }) => (
@@ -234,17 +212,12 @@ export const PatientLayout: React.FC = () => {
                 onClick: () => navigate(item.path),
               })),
               {
-                value: 'role_admin',
-                label: 'Switch to Admin',
-                icon: <ShieldCheck className="w-4 h-4 text-accent" />,
+                value: 'logout',
+                label: 'Log out',
+                icon: <LogOut className="w-4 h-4" strokeWidth={1.75} />,
                 divider: true,
-                onClick: () => handleRoleSwitch('hospital_admin'),
-              },
-              {
-                value: 'role_doctor',
-                label: 'Switch to Doctor',
-                icon: <Stethoscope className="w-4 h-4 text-accent" />,
-                onClick: () => handleRoleSwitch('doctor'),
+                destructive: true,
+                onClick: handleLogout,
               },
             ]}
             renderTrigger={({ toggle, isOpen, ref }) => (
