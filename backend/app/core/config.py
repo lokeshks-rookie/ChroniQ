@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     OTP_MAX_ATTEMPTS: int = 3
     OTP_DEV_ECHO: bool = True
 
+    # Google OAuth
+    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_SECRET: Optional[str] = None
+    GOOGLE_REDIRECT_URI: Optional[str] = None
+
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 120
     AUTH_RATE_LIMIT_PER_MINUTE: int = 10

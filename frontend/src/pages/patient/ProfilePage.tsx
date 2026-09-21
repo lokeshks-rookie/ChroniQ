@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Mail,
   Phone,
@@ -11,8 +11,10 @@ import {
   CheckCircle2,
   AlertTriangle,
   Pencil,
+  Plus,
 } from 'lucide-react';
 import { usePatientStore } from '@/store/patientStore';
+import { useAuthStore } from '@/store/authStore';
 import { useUiStore } from '@/store/uiStore';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -48,15 +50,34 @@ type Section = 'main' | 'edit-profile' | 'notifications' | 'password' | 'data-ex
 export const ProfilePage: React.FC = () => {
   const { addToast } = useUiStore();
   const patient = usePatientStore((s) => s.patient);
+  const authUser = useAuthStore((s) => s.user);
+
+  // Fetch real patient profile from backend on mount
+  useEffect(() => {
+    usePatientStore.getState().fetchPatientData();
+  }, []);
 
   const [section, setSection] = useState<Section>('main');
 
   // Edit profile state
-  const [editName, setEditName] = useState(patient.name);
-  const [editAge, setEditAge] = useState(patient.age?.toString() || '');
-  const [editGender, setEditGender] = useState(patient.gender || '');
-  const [editLanguage, setEditLanguage] = useState(patient.preferred_language);
+  const [editName, setEditName] = useState(patient.name || authUser?.name || '');
+  const [editPhone, setEditPhone] = useState(patient.phone || authUser?.phone || '');
+  const [editAge, setEditAge] = useState(patient.age?.toString() || authUser?.age?.toString() || '');
+  const [editGender, setEditGender] = useState(patient.gender || authUser?.gender || '');
+  const [editLanguage, setEditLanguage] = useState(patient.preferred_language || 'en');
   const [savingProfile, setSavingProfile] = useState(false);
+
+  // Synchronize edit fields when patient or authUser state changes
+  useEffect(() => {
+    setEditName(patient.name || authUser?.name || '');
+    setEditPhone(patient.phone || authUser?.phone || '');
+    setEditAge(patient.age?.toString() || authUser?.age?.toString() || '');
+    setEditGender(patient.gender || authUser?.gender || '');
+    setEditLanguage(patient.preferred_language || 'en');
+    if (patient.notification_preferences) {
+      setNotifPrefs(patient.notification_preferences);
+    }
+  }, [patient, authUser]);
 
   // Contact change state
   const [otpModalOpen, setOtpModalOpen] = useState(false);
@@ -94,23 +115,25 @@ export const ProfilePage: React.FC = () => {
     try {
       await patientApi.updateProfile({
         name: editName.trim(),
+        phone: editPhone.trim() || undefined,
         age: editAge ? parseInt(editAge, 10) : undefined,
         gender: editGender || undefined,
         preferred_language: editLanguage,
       });
       addToast({ title: 'Profile updated', variant: 'success' });
       setSection('main');
-    } catch {
-      addToast({ title: 'Failed to save', variant: 'danger' });
+    } catch (err: any) {
+      addToast({ title: err?.message || 'Failed to save', variant: 'danger' });
     } finally {
       setSavingProfile(false);
     }
   };
 
+
   // ========== Contact change ==========
   const handleContactEdit = (type: 'phone' | 'email') => {
     setOtpType(type);
-    setNewContactValue(type === 'phone' ? patient.phone : (patient.email || ''));
+    setNewContactValue(type === 'phone' ? (patient.phone || '') : (patient.email || ''));
     setEditingContact(type);
   };
 
@@ -242,14 +265,18 @@ export const ProfilePage: React.FC = () => {
         {/* Profile card */}
         <div className="bg-base border border-ink/10 rounded-card p-6 space-y-4">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-cream/30 flex items-center justify-center text-2xl font-medium text-ink shrink-0">
-              {patient.name.charAt(0)}
+            <div className="w-16 h-16 rounded-full bg-cream/30 flex items-center justify-center text-2xl font-medium text-ink shrink-0 overflow-hidden">
+              {patient.photo_url ? (
+                <img src={patient.photo_url} alt={patient.name} className="w-full h-full object-cover" />
+              ) : (
+                patient.name ? patient.name.charAt(0).toUpperCase() : 'U'
+              )}
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg font-medium text-ink">{patient.name}</h2>
+              <h2 className="text-lg font-medium text-ink">{patient.name || 'Your profile'}</h2>
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-sm text-muted">
-                {patient.age && <span>Age {patient.age}</span>}
-                {patient.gender && <span className="capitalize">{patient.gender}</span>}
+                {patient.age ? <span>Age {patient.age}</span> : null}
+                {patient.gender ? <span className="capitalize">{patient.gender}</span> : null}
                 <span>
                   {LANGUAGE_OPTIONS.find((l) => l.value === patient.preferred_language)?.label || patient.preferred_language}
                 </span>
@@ -264,8 +291,18 @@ export const ProfilePage: React.FC = () => {
                 Phone
               </span>
               <div className="flex items-center gap-2">
-                <span className="text-ink">{patient.phone}</span>
-                {patient.is_verified && <CheckCircle2 className="w-4 h-4 text-success" strokeWidth={1.75} />}
+                <span className="text-ink">{patient.phone || 'Not provided'}</span>
+                {patient.phone && patient.is_verified ? (
+                  <CheckCircle2 className="w-4 h-4 text-success" strokeWidth={1.75} />
+                ) : null}
+                {!patient.phone && (
+                  <button
+                    onClick={() => setSection('edit-profile')}
+                    className="text-xs text-accent font-medium hover:underline cursor-pointer flex items-center gap-1 ml-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add phone
+                  </button>
+                )}
               </div>
             </div>
             <div className="flex items-center justify-between py-2 border-t border-ink/5">
@@ -274,8 +311,10 @@ export const ProfilePage: React.FC = () => {
                 Email
               </span>
               <div className="flex items-center gap-2">
-                <span className="text-ink">{patient.email || 'Not set'}</span>
-                {patient.email_verified && <CheckCircle2 className="w-4 h-4 text-success" strokeWidth={1.75} />}
+                <span className="text-ink">{patient.email || 'Not provided'}</span>
+                {patient.email && patient.email_verified ? (
+                  <CheckCircle2 className="w-4 h-4 text-success" strokeWidth={1.75} />
+                ) : null}
               </div>
             </div>
           </div>
@@ -290,6 +329,7 @@ export const ProfilePage: React.FC = () => {
             Edit profile
           </Button>
         </div>
+
 
         {/* Deletion pending warning */}
         {patient.deletion_requested_at && (
@@ -353,12 +393,19 @@ export const ProfilePage: React.FC = () => {
 
         {/* Account info */}
         <div className="text-xs text-muted space-y-1 pt-2">
-          <p>Member since {new Date(patient.created_at).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</p>
+          <p>
+            Member since{' '}
+            {patient.created_at
+              ? new Date(patient.created_at).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
+              : 'Recently'}
+          </p>
           <p className="flex items-center gap-1">
             <Shield className="w-3 h-3" strokeWidth={1.75} />
-            Phone verified · {patient.email_verified ? 'Email verified' : 'Email not verified'}
+            {patient.phone ? (patient.is_verified ? 'Phone verified' : 'Phone unverified') : 'No phone linked'} ·{' '}
+            {patient.email_verified ? 'Email verified' : 'Email not verified'}
           </p>
         </div>
+
 
         {/* Delete confirmation modal */}
         <Modal
@@ -421,10 +468,36 @@ export const ProfilePage: React.FC = () => {
             <input
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
+              placeholder="Your full name"
               className="w-full h-12 px-4 bg-base border border-ink/15 rounded-card text-sm text-ink
                          focus:border-accent focus:ring-1 focus:ring-accent/30 outline-none transition-colors"
             />
           </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted uppercase tracking-wider">Phone number</label>
+              <input
+                type="tel"
+                value={editPhone}
+                onChange={(e) => setEditPhone(e.target.value)}
+                placeholder="+91 98765 43210"
+                className="w-full h-12 px-4 bg-base border border-ink/15 rounded-card text-sm text-ink
+                           focus:border-accent focus:ring-1 focus:ring-accent/30 outline-none transition-colors"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted uppercase tracking-wider">Email address</label>
+              <input
+                type="email"
+                value={patient.email || ''}
+                disabled
+                title="Email is managed via authentication"
+                className="w-full h-12 px-4 bg-ink/[0.03] border border-ink/10 rounded-card text-sm text-ink/70 cursor-not-allowed outline-none"
+              />
+            </div>
+          </div>
+
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">

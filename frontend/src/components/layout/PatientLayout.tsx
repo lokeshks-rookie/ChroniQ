@@ -93,7 +93,7 @@ export const PatientLayout: React.FC = () => {
   // Fetch live patient data from backend
   useEffect(() => {
     fetchPatientData();
-  }, [fetchPatientData]);
+  }, []);
 
   // Close menus on route change
   useEffect(() => {

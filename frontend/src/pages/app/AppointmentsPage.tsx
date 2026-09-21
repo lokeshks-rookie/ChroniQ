@@ -8,7 +8,7 @@ import TokenBadge from '@/components/ui/TokenBadge';
 type TabType = 'upcoming' | 'past' | 'cancelled';
 
 export default function AppointmentsPage() {
-  const [appointments, setAppointments] = useState<MockAppointment[]>([...mockGetMyAppointments()]);
+  const [appointments, setAppointments] = useState<MockAppointment[]>([]);
   const [activeTab, setActiveTab] = useState<TabType>('upcoming');
   const [cancelModalId, setCancelModalId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -19,32 +19,32 @@ export default function AppointmentsPage() {
     setIsLoading(true);
     try {
       const res = await bookingApi.getMyAppointments();
-      const raw = res.data || [];
-      if (raw.length > 0) {
-        const mapped: MockAppointment[] = raw.map((a: any) => ({
-          _id: a.id || a.booking_code,
-          doctorId: a.doctor_id,
-          hospitalId: a.hospital_id,
-          doctorName: a.doctor_name,
-          hospitalName: a.hospital_name,
-          specialty: a.department_name || '',
-          date: a.scheduled_start ? a.scheduled_start.split('T')[0] : '',
-          time: a.scheduled_start ? a.scheduled_start.split('T')[1]?.slice(0, 5) : '',
-          status: a.status === 'booked' ? 'upcoming' : a.status,
-          token: a.token,
-          booking_code: a.booking_code,
-          reason: a.reason,
-          patientName: a.patient?.name || '',
-          fee: a.fee || 0,
-        }));
-        setAppointments(mapped);
-      }
+      const raw = Array.isArray(res.data) ? res.data : [];
+      const mapped: MockAppointment[] = raw.map((a: any) => ({
+        _id: a.id || a.booking_code,
+        doctorId: a.doctor_id,
+        hospitalId: a.hospital_id,
+        doctorName: a.doctor_name,
+        hospitalName: a.hospital_name,
+        specialty: a.department_name || '',
+        date: a.scheduled_start ? a.scheduled_start.split('T')[0] : '',
+        time: a.scheduled_start ? a.scheduled_start.split('T')[1]?.slice(0, 5) : '',
+        status: a.status === 'booked' ? 'upcoming' : a.status,
+        token: a.token,
+        booking_code: a.booking_code,
+        reason: a.reason,
+        patientName: a.patient?.name || '',
+        fee: a.fee || 0,
+      }));
+      setAppointments(mapped);
     } catch (err) {
-      console.warn('Backend load failed, using local appointments:', err);
+      console.warn('Backend load failed:', err);
+      setAppointments([]);
     } finally {
       setIsLoading(false);
     }
   };
+
 
   useEffect(() => {
     loadAppointments();

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { mockResetPassword } from '@/store/authStore';
@@ -9,17 +9,22 @@ export default function ResetPasswordPage() {
   const state = (location.state as { token?: string; identifier?: string }) || {};
   const identifier = state.identifier || state.token || '';
 
-  // Redirect if no state from OTP step
-  if (!identifier) {
-    navigate('/forgot-password', { replace: true });
-    return null;
-  }
-
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!identifier) {
+      navigate('/forgot-password', { replace: true });
+    }
+  }, [identifier, navigate]);
+
+  // Render nothing if no state while redirecting
+  if (!identifier) {
+    return null;
+  }
 
   const code = (state as any).code || '123456';
 

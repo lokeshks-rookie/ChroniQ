@@ -74,6 +74,8 @@ export const authApi = {
     api.post('/auth/reset-password', data),
   refresh: (refreshToken: string) =>
     api.post('/auth/refresh', { refresh_token: refreshToken }),
+  googleAuth: (data: { credential?: string; code?: string; redirect_uri?: string }) =>
+    api.post('/auth/google', data),
   me: () => api.get('/auth/me'),
 };
 

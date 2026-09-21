@@ -47,6 +47,9 @@ async def get_patient_profile(current_user: User = Depends(get_current_user)):
         "gender": current_user.gender,
         "preferred_language": current_user.preferred_language,
         "role": current_user.role,
+        "photo_url": current_user.photo_url,
+        "email_verified": current_user.email_verified,
+        "is_verified": current_user.is_verified,
         "created_at": current_user.created_at,
     }
 
@@ -242,8 +245,28 @@ async def delete_document(
 
 
 # ==========================================
-# Reviews
-# ==========================================
+@router.get("/reviews", response_model=List[dict])
+async def get_my_reviews(current_user: User = Depends(get_current_user)):
+    """List reviews submitted by the current patient."""
+    revs = await Review.find(Review.patient_id == str(current_user.id)).sort("-created_at").to_list()
+    return [
+        {
+            "id": str(r.id),
+            "appointment_id": r.appointment_id,
+            "patient_id": r.patient_id,
+            "doctor_id": r.doctor_id,
+            "hospital_id": r.hospital_id,
+            "doctor_rating": r.doctor_rating,
+            "hospital_rating": r.hospital_rating,
+            "comment": r.comment,
+            "tags": r.tags,
+            "wait_as_expected": r.wait_as_expected,
+            "created_at": r.created_at,
+            "updated_at": r.updated_at,
+        }
+        for r in revs
+    ]
+
 
 @router.post("/reviews", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def submit_review(

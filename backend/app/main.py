@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
-from app.core.db import close_db, init_db
+from app.core.db import close_db, init_db, is_db_connected
 from app.routes.admin import router as admin_router
 from app.routes.appointments import router as appointments_router
 from app.routes.auth import router as auth_router
@@ -98,9 +98,26 @@ app.add_middleware(
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.exception(f"Unhandled exception on {request.method} {request.url.path}: {exc}")
+    origin = request.headers.get("origin")
+    headers = {}
+    if origin and (origin in cleaned_origins or "*" in settings.CORS_ORIGINS):
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+        headers["Access-Control-Allow-Headers"] = "*"
+        headers["Access-Control-Allow-Methods"] = "*"
+
+    if not is_db_connected():
+        detail = (
+            "Database connection unavailable. MongoDB Atlas rejected the connection. "
+            "Please ensure your current IP address is added to the IP Access List in MongoDB Atlas (Network Access)."
+        )
+    else:
+        detail = "An internal server error occurred. Please try again later."
+
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": "An internal server error occurred. Please try again later."},
+        content={"detail": detail},
+        headers=headers,
     )
 
 

@@ -889,11 +889,17 @@ export const mockMyAppointments: MockAppointment[] = [
 ];
 
 export function mockGetMyNextAppointment(): MockAppointment | null {
+  try {
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined' && localStorage.getItem('chroniq_user')) {
+      return null;
+    }
+  } catch {}
   const active = mockMyAppointments.filter(
     (a) => a.status === 'upcoming' || a.status === 'in_queue' || a.status === 'called'
   );
   return active.length > 0 ? active[0] : null;
 }
+
 
 // ─── Notification ─────────────────────────────────────────────────────────────
 
@@ -934,8 +940,14 @@ export const mockNotifications: MockNotification[] = [
 ];
 
 export function mockGetRecentNotifications(limit = 4): MockNotification[] {
+  try {
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined' && localStorage.getItem('chroniq_user')) {
+      return [];
+    }
+  } catch {}
   return mockNotifications.slice(0, limit);
 }
+
 
 // ─── Family Members ───────────────────────────────────────────────────────────
 
@@ -1095,6 +1107,11 @@ export const ALL_LANGUAGES = Array.from(
 // ─── Patient Portal Mock API Additions ────────────────────────────────────────
 
 export function mockGetMyAppointments(): MockAppointment[] {
+  try {
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined' && localStorage.getItem('chroniq_user')) {
+      return [];
+    }
+  } catch {}
   return mockMyAppointments;
 }
 
@@ -1115,8 +1132,14 @@ export function mockCancelAppointment(id: string): boolean {
 }
 
 export function mockGetNotifications(): MockNotification[] {
+  try {
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined' && localStorage.getItem('chroniq_user')) {
+      return [];
+    }
+  } catch {}
   return mockNotifications;
 }
+
 
 export function mockMarkAsRead(id: string): void {
   const notif = mockNotifications.find(n => n._id === id);

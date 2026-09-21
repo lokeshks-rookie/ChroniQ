@@ -23,6 +23,8 @@ import type {
   NotificationPreferences,
 } from '@/types';
 import { patientPortalApi, bookingApi, discoveryApi, adminPortalApi } from '@/services/api';
+import { useAuthStore } from './authStore';
+
 
 // ==========================================
 // Default notification preferences
@@ -644,6 +646,7 @@ interface PatientState {
   getTotalDocumentBytes: () => number;
   isLoadingBackend: boolean;
   fetchPatientData: () => Promise<void>;
+  syncWithAuthUser: (authUser: Partial<PatientUser> | null) => void;
 }
 
 function generateId(prefix: string): string {
@@ -657,60 +660,182 @@ function generateReference(): string {
   return ref;
 }
 
-export const usePatientStore = create<PatientState>((set, get) => ({
-  patient: INITIAL_PATIENT,
-  familyMembers: [...INITIAL_FAMILY_MEMBERS],
-  appointments: [...INITIAL_PATIENT_APPOINTMENTS],
-  reviews: [...INITIAL_REVIEWS],
-  documents: [...INITIAL_DOCUMENTS],
-  tickets: [...INITIAL_TICKETS],
-  hospitals: [...PATIENT_HOSPITALS],
-  departments: [...PATIENT_DEPARTMENTS],
-  doctors: [...PATIENT_DOCTORS],
-  followUpSuggestions: { ...FOLLOW_UP_SUGGESTIONS },
-  isLoadingBackend: false,
+function getInitialPatient(): PatientUser {
+  try {
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('chroniq_user');
+      if (raw) {
+        const u = JSON.parse(raw);
+        if (u && (u.name || u.email || u.phone || u.id || u._id)) {
+          const cleanName = u.name || (u.email ? u.email.split('@')[0] : (u.phone || 'Patient'));
+          return {
+            ...INITIAL_PATIENT,
+            id: u.id || u._id || PATIENT_ID,
+            name: cleanName,
+            phone: u.phone !== undefined && u.phone !== null ? u.phone : '',
+            email: u.email !== undefined && u.email !== null ? u.email : '',
+            role: u.role || 'patient',
+            preferred_language: u.preferred_language || 'en',
+            is_verified: Boolean(u.is_verified),
+            is_active: u.is_active ?? true,
+            created_at: u.created_at || new Date().toISOString(),
+            updated_at: u.updated_at || new Date().toISOString(),
+            age: u.age !== undefined ? u.age : undefined,
+            gender: u.gender !== undefined ? u.gender : undefined,
+            photo_url: u.photo_url || undefined,
+            email_verified: Boolean(u.email_verified),
+            notification_preferences: u.notification_preferences || DEFAULT_NOTIFICATION_PREFS,
+          };
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to parse persisted user for patient store', e);
+  }
+  return INITIAL_PATIENT;
+}
 
-  fetchPatientData: async () => {
-    set({ isLoadingBackend: true });
-    try {
-      const [profileRes, familyRes, apptsRes, docsRes, revsRes, tcksRes, hospsRes, deptsRes, docsListRes] = await Promise.allSettled([
-        patientPortalApi.getProfile(),
-        patientPortalApi.getFamilyMembers(),
-        bookingApi.getMyAppointments(),
-        patientPortalApi.getDocuments(),
-        patientPortalApi.getReviews(),
-        patientPortalApi.getTickets(),
-        discoveryApi.getHospitals(),
-        adminPortalApi.getDepartments(),
-        discoveryApi.getDoctors(),
-      ]);
 
-      const updates: Partial<PatientState> = {};
+function hasPersistedUser(): boolean {
+  try {
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      return Boolean(localStorage.getItem('chroniq_user'));
+    }
+  } catch {}
+  return false;
+}
 
-      if (profileRes.status === 'fulfilled' && profileRes.value.data) {
-        updates.patient = { ...get().patient, ...profileRes.value.data };
+export const usePatientStore = create<PatientState>((set, get) => {
+  const isAuth = hasPersistedUser();
+  return {
+    patient: getInitialPatient(),
+    familyMembers: isAuth ? [] : [...INITIAL_FAMILY_MEMBERS],
+    appointments: isAuth ? [] : [...INITIAL_PATIENT_APPOINTMENTS],
+    reviews: isAuth ? [] : [...INITIAL_REVIEWS],
+    documents: isAuth ? [] : [...INITIAL_DOCUMENTS],
+    tickets: isAuth ? [] : [...INITIAL_TICKETS],
+    hospitals: [...PATIENT_HOSPITALS],
+    departments: [...PATIENT_DEPARTMENTS],
+    doctors: [...PATIENT_DOCTORS],
+    followUpSuggestions: isAuth ? {} : { ...FOLLOW_UP_SUGGESTIONS },
+    isLoadingBackend: false,
+
+    syncWithAuthUser: (authUser) => {
+      if (!authUser) {
+        set({
+          patient: INITIAL_PATIENT,
+          familyMembers: [...INITIAL_FAMILY_MEMBERS],
+          appointments: [...INITIAL_PATIENT_APPOINTMENTS],
+          reviews: [...INITIAL_REVIEWS],
+          documents: [...INITIAL_DOCUMENTS],
+          tickets: [...INITIAL_TICKETS],
+          followUpSuggestions: { ...FOLLOW_UP_SUGGESTIONS },
+        });
+        return;
       }
-      if (familyRes.status === 'fulfilled' && Array.isArray(familyRes.value.data)) {
-        updates.familyMembers = familyRes.value.data;
-      }
-      if (apptsRes.status === 'fulfilled' && Array.isArray(apptsRes.value.data)) {
-        updates.appointments = apptsRes.value.data;
-      }
-      if (docsRes.status === 'fulfilled' && Array.isArray(docsRes.value.data)) {
-        updates.documents = docsRes.value.data;
-      }
-      if (revsRes.status === 'fulfilled' && Array.isArray(revsRes.value.data)) {
-        updates.reviews = revsRes.value.data;
-      }
-      if (tcksRes.status === 'fulfilled' && Array.isArray(tcksRes.value.data)) {
-        updates.tickets = tcksRes.value.data;
-      }
-      if (hospsRes.status === 'fulfilled' && Array.isArray(hospsRes.value.data) && hospsRes.value.data.length > 0) {
-        updates.hospitals = hospsRes.value.data;
-      }
-      if (deptsRes.status === 'fulfilled' && Array.isArray(deptsRes.value.data) && deptsRes.value.data.length > 0) {
-        updates.departments = deptsRes.value.data;
-      }
+      set((state) => ({
+        patient: {
+          ...state.patient,
+          ...authUser,
+          id: authUser.id || (authUser as any)._id || state.patient.id,
+          name: authUser.name !== undefined ? authUser.name : state.patient.name,
+          email: authUser.email !== undefined ? authUser.email : state.patient.email,
+          phone: authUser.phone !== undefined ? authUser.phone : state.patient.phone,
+          photo_url: authUser.photo_url !== undefined ? authUser.photo_url : state.patient.photo_url,
+          age: authUser.age !== undefined ? authUser.age : undefined,
+          gender: authUser.gender !== undefined ? authUser.gender : undefined,
+        },
+        familyMembers: [],
+        appointments: [],
+        reviews: [],
+        documents: [],
+        tickets: [],
+        followUpSuggestions: {},
+      }));
+      get().fetchPatientData();
+    },
+
+    fetchPatientData: async () => {
+      if (get().isLoadingBackend) return;
+      set({ isLoadingBackend: true });
+      try {
+        const [profileRes, familyRes, apptsRes, docsRes, revsRes, tcksRes, hospsRes, deptsRes, docsListRes] = await Promise.allSettled([
+          patientPortalApi.getProfile(),
+          patientPortalApi.getFamilyMembers(),
+          bookingApi.getMyAppointments(),
+          patientPortalApi.getDocuments(),
+          patientPortalApi.getReviews(),
+          patientPortalApi.getTickets(),
+          discoveryApi.getHospitals(),
+          adminPortalApi.getDepartments(),
+          discoveryApi.getDoctors(),
+        ]);
+
+        const updates: Partial<PatientState> = {};
+
+        if (profileRes.status === 'fulfilled' && profileRes.value.data) {
+          const pData = profileRes.value.data;
+          const mergedPatient: PatientUser = {
+            ...get().patient,
+            ...pData,
+            id: pData.id || pData._id || get().patient.id,
+          };
+          updates.patient = mergedPatient;
+
+          // Keep authStore in sync so TopBar & sidebars reflect latest updates only if values differ
+          try {
+            const auth = useAuthStore.getState();
+            if (auth.user) {
+              const hasDiff =
+                (pData.name !== undefined && pData.name !== auth.user.name) ||
+                (pData.email !== undefined && pData.email !== auth.user.email) ||
+                (pData.phone !== undefined && pData.phone !== auth.user.phone) ||
+                (pData.photo_url !== undefined && pData.photo_url !== auth.user.photo_url);
+              if (hasDiff) {
+                auth.setAuth(
+                  {
+                    ...auth.user,
+                    ...pData,
+                    id: pData.id || pData._id || auth.user.id,
+                  },
+                  auth.token || ''
+                );
+              }
+            }
+          } catch {}
+        }
+        if (familyRes.status === 'fulfilled' && Array.isArray(familyRes.value.data)) {
+          updates.familyMembers = familyRes.value.data;
+        } else {
+          updates.familyMembers = [];
+        }
+        if (apptsRes.status === 'fulfilled' && Array.isArray(apptsRes.value.data)) {
+          updates.appointments = apptsRes.value.data;
+        } else {
+          updates.appointments = [];
+        }
+        if (docsRes.status === 'fulfilled' && Array.isArray(docsRes.value.data)) {
+          updates.documents = docsRes.value.data;
+        } else {
+          updates.documents = [];
+        }
+        if (revsRes.status === 'fulfilled' && Array.isArray(revsRes.value.data)) {
+          updates.reviews = revsRes.value.data;
+        } else {
+          updates.reviews = [];
+        }
+        if (tcksRes.status === 'fulfilled' && Array.isArray(tcksRes.value.data)) {
+          updates.tickets = tcksRes.value.data;
+        } else {
+          updates.tickets = [];
+        }
+        if (hospsRes.status === 'fulfilled' && Array.isArray(hospsRes.value.data) && hospsRes.value.data.length > 0) {
+          updates.hospitals = hospsRes.value.data;
+        }
+        if (deptsRes.status === 'fulfilled' && Array.isArray(deptsRes.value.data) && deptsRes.value.data.length > 0) {
+          updates.departments = deptsRes.value.data;
+        }
+
       if (docsListRes.status === 'fulfilled' && Array.isArray(docsListRes.value.data) && docsListRes.value.data.length > 0) {
         updates.doctors = docsListRes.value.data;
       }
@@ -722,6 +847,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       set({ isLoadingBackend: false });
     }
   },
+
 
   // Profile
   updateProfile: (updates) => {
@@ -894,4 +1020,16 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       .filter((d) => d.patient_id === get().patient.id)
       .reduce((sum, d) => sum + d.size_bytes, 0);
   },
-}));
+};
+});
+
+
+// Subscribe to auth state changes so patient profile is always synchronized
+useAuthStore.subscribe((state, prevState) => {
+  const currentId = state.user?.id || (state.user as any)?._id;
+  const prevId = prevState?.user?.id || (prevState?.user as any)?._id;
+  if (currentId !== prevId) {
+    usePatientStore.getState().syncWithAuthUser(state.user as any);
+  }
+});
+

@@ -40,6 +40,7 @@ const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage'));
 const VerifyOtpPage = lazy(() => import('@/pages/auth/VerifyOtpPage'));
 const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage'));
+const OAuthCallbackPage = lazy(() => import('@/pages/auth/OAuthCallbackPage'));
 
 // ── Section 4.2: Patient Portal (Pages 10–19) ─────────────────
 const PatientDashboard = lazy(() => import('@/pages/app/PatientDashboard'));
@@ -177,6 +178,14 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={<PageLoadingFallback />}>
             <ResetPasswordPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: '/auth/callback',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <OAuthCallbackPage />
           </Suspense>
         ),
       },
@@ -422,6 +431,16 @@ export const router = createBrowserRouter([
           <Suspense fallback={<PageLoadingFallback />}>
             <ProtectedRoute capability="reports_and_export">
               <ReportsPage />
+            </ProtectedRoute>
+          </Suspense>
+        ),
+      },
+      {
+        path: 'hospitals',
+        element: (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <ProtectedRoute capability="view_dashboard">
+              <SuperHospitalsPage />
             </ProtectedRoute>
           </Suspense>
         ),

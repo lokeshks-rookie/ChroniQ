@@ -3,8 +3,6 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Bell,
   Clock,
-  Play,
-  Pause,
   RotateCcw,
   Menu,
   X,
@@ -15,6 +13,7 @@ import {
   Copy,
   Check,
   User,
+  LogOut,
 } from 'lucide-react';
 import { getNavConfigForRole } from './navConfig';
 import { DesktopSidebar } from './Sidebar';
@@ -33,15 +32,17 @@ import { cn } from '@/lib/utils';
 export const AdminLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentRole, currentDoctorId, setRole, setDoctorId, hasCapability } = useAuthStore();
+  const { currentRole, currentDoctorId, setRole, setDoctorId, hasCapability, user, clearAuth } = useAuthStore();
+  const handleLogout = () => {
+    clearAuth();
+    navigate('/login');
+  };
   const {
     hospital,
     queue_entries,
     doctors,
     departments,
     getDoctorEffectiveStatus,
-    isSimulationPaused,
-    toggleSimulation,
     resetDemoData,
     tickSimulation,
     fetchHospitalData,
@@ -107,8 +108,12 @@ export const AdminLayout: React.FC = () => {
         {/* Nav Groups */}
         <nav className="space-y-5 flex-1 pr-1">
           {currentNavGroups.map((group) => {
-            // Filter items by role capability
-            const visibleItems = group.items.filter((item) => hasCapability(item.capability));
+            const isSuper = currentRole === 'super_admin' || user?.role === 'super_admin';
+            // Filter items by role capability and super-admin scope
+            const visibleItems = group.items.filter((item) => {
+              if (item.superAdminOnly && !isSuper) return false;
+              return hasCapability(item.capability);
+            });
             if (visibleItems.length === 0) return null;
 
             return (
@@ -345,9 +350,16 @@ export const AdminLayout: React.FC = () => {
               className="text-[11px] uppercase font-semibold tracking-wider shrink-0"
               style={{ color: 'var(--color-ink-light, rgba(253, 249, 240, 0.75))' }}
             >
-              {currentRole === 'doctor' ? 'Doctor' : currentRole === 'receptionist' ? 'Reception' : 'Admin'}
+              {currentRole === 'doctor'
+                ? 'Doctor'
+                : currentRole === 'receptionist'
+                ? 'Reception'
+                : currentRole === 'super_admin'
+                ? 'Super Admin'
+                : 'Admin'}
             </span>
           }
+          onLogout={handleLogout}
         >
           {renderNavContent()}
         </DesktopSidebar>
@@ -359,7 +371,7 @@ export const AdminLayout: React.FC = () => {
               className="fixed inset-0 bg-ink/60 transition-opacity backdrop-blur-[1px]"
               onClick={() => setMobileNavOpen(false)}
             />
-            <div className="relative w-[280px] bg-ink text-base h-full shadow-2xl flex flex-col z-10">
+            <div className="relative w-[280px] bg-ink text-base h-full shadow-2xl flex flex-col z-10 p-4">
               <div className="absolute top-4 right-4">
                 <button
                   type="button"
@@ -370,7 +382,22 @@ export const AdminLayout: React.FC = () => {
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              {renderNavContent()}
+              <div className="flex-1 overflow-y-auto mt-6">
+                {renderNavContent()}
+              </div>
+              <div className="pt-3 mt-auto border-t border-base/10">
+                {user?.name && (
+                  <p className="text-xs text-base/40 px-3 pb-2 truncate">{user.name}</p>
+                )}
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-[10px] text-sm font-medium text-base/65 hover:text-base hover:bg-base/10 transition-colors cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Log out</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -403,26 +430,6 @@ export const AdminLayout: React.FC = () => {
 
             {/* Right Topbar Controls */}
             <div className="flex items-center gap-2 sm:gap-3">
-              {/* Simulation Pause Toggle */}
-              <button
-                type="button"
-                onClick={toggleSimulation}
-                title={isSimulationPaused ? 'Resume real-time simulation' : 'Pause real-time simulation'}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-ink/15 text-xs font-medium text-ink hover:bg-ink/5 transition-colors cursor-pointer"
-              >
-                {isSimulationPaused ? (
-                  <>
-                    <Play className="w-3.5 h-3.5 text-success fill-success" />
-                    <span className="hidden md:inline">Resume demo</span>
-                  </>
-                ) : (
-                  <>
-                    <Pause className="w-3.5 h-3.5 text-accent fill-accent" />
-                    <span className="hidden md:inline">Pause demo</span>
-                  </>
-                )}
-              </button>
-
               {/* Alerts Bell */}
               <div className="relative">
                 <button

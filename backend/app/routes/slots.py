@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.core.config import get_settings
 from app.core.dependencies import get_current_user
 from app.models.accounts import User
-from app.models.common import SlotStatus, utcnow
+from app.models.common import SlotStatus, utcnow, ensure_utc
 from app.models.scheduling import Slot
 from app.schemas.booking import SlotHoldResponse, SlotResponse
 from app.services.slot_service import generate_slots_for_doctor, hold_slot
@@ -56,7 +56,8 @@ async def get_doctor_slots(
     # Normalize expired holds
     now = utcnow()
     for s in slots:
-        if s.status == SlotStatus.HELD and s.held_until and s.held_until < now:
+        held_until = ensure_utc(s.held_until)
+        if s.status == SlotStatus.HELD and held_until and held_until < now:
             s.status = SlotStatus.OPEN
 
     return [_to_slot_response(s) for s in slots]

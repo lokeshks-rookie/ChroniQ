@@ -234,7 +234,7 @@ export interface TokenCounter {
 export interface User {
   id: string;
   name: string;
-  phone: string;
+  phone?: string;
   email?: string;
   role: Role;
   hospital_id?: string;

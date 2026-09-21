@@ -8,7 +8,7 @@ export interface AuthUser {
   id: string;
   _id?: string;
   name: string;
-  phone: string;
+  phone?: string;
   email?: string;
   role: UserRole;
   hospital_id?: string;
@@ -282,6 +282,21 @@ export async function login(identifier: string, password: string): Promise<Login
     return { user: normalizedUser, token };
   } catch (err: any) {
     throw new Error(getApiErrorMessage(err, 'Invalid credentials. Please try again.'));
+  }
+}
+
+export async function googleLogin(data: { credential?: string; code?: string; redirect_uri?: string }): Promise<LoginResponse> {
+  try {
+    const res = await authApi.googleAuth(data);
+    const { token, user } = res.data;
+    const normalizedUser: AuthUser = {
+      ...user,
+      id: user.id || user._id,
+    };
+    useAuthStore.getState().setAuth(normalizedUser, token);
+    return { user: normalizedUser, token };
+  } catch (err: any) {
+    throw new Error(getApiErrorMessage(err, 'Google authentication failed. Please try again.'));
   }
 }
 

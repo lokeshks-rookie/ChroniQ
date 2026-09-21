@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { DataTable, Column } from '@/components/ui/DataTable';
@@ -10,6 +11,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useHospitalStore } from '@/store/hospitalStore';
 import { useAuthStore } from '@/store/authStore';
 import { useUiStore } from '@/store/uiStore';
+import { mockHospitals } from '@/data/mockData';
 import {
   createStaffMember,
   updateStaffMember,
@@ -22,6 +24,8 @@ import {
   Edit2,
   Shield,
   Lock,
+  Hospital,
+  Filter,
 } from 'lucide-react';
 import type { User, Role, Capability } from '@/types';
 
@@ -42,12 +46,30 @@ const CAPABILITIES_LIST: { id: Capability; label: string }[] = [
 ];
 
 export const StaffPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlHospital = searchParams.get('hospital');
+
   const { users, doctors } = useHospitalStore();
   const { currentUserId, permissions, updatePermission } = useAuthStore();
   const { addToast } = useUiStore();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+
+  // Hospital split-up filters
+  const [selectedHospitalId, setSelectedHospitalId] = useState<string>(urlHospital || 'all');
+  const [selectedDistrict, setSelectedDistrict] = useState<string>('all');
+  const [staffHospitalId, setStaffHospitalId] = useState<string>(
+    urlHospital && urlHospital !== 'all' ? urlHospital : 'hosp_city_01'
+  );
+
+  // Synchronize when URL param changes
+  React.useEffect(() => {
+    if (urlHospital) {
+      setSelectedHospitalId(urlHospital);
+      setStaffHospitalId(urlHospital);
+    }
+  }, [urlHospital]);
 
   // Form fields
   const [name, setName] = useState('');
@@ -69,6 +91,31 @@ export const StaffPage: React.FC = () => {
     setLocalMatrix(permissions);
   }, [permissions]);
 
+  // Filtered staff users according to Hospital & District
+  const filteredUsers = useMemo(() => {
+    return users.filter((u) => {
+      const uHospId = u.hospital_id || 'hosp_city_01';
+      const hosp = mockHospitals.find((h) => h._id === uHospId);
+
+      if (selectedHospitalId !== 'all' && uHospId !== selectedHospitalId) {
+        return false;
+      }
+      if (selectedDistrict !== 'all') {
+        if (!hosp || hosp.city.toLowerCase() !== selectedDistrict.toLowerCase()) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [users, selectedHospitalId, selectedDistrict]);
+
+  const filteredHospitalsForSelect = useMemo(() => {
+    if (selectedDistrict === 'all') return mockHospitals;
+    return mockHospitals.filter(
+      (h) => h.city.toLowerCase() === selectedDistrict.toLowerCase()
+    );
+  }, [selectedDistrict]);
+
   // Add / Edit Modal open
   const handleOpenAdd = () => {
     setEditingUser(null);
@@ -77,16 +124,18 @@ export const StaffPage: React.FC = () => {
     setEmail('');
     setRole('receptionist');
     setLinkedDoctorId('');
+    setStaffHospitalId(selectedHospitalId !== 'all' ? selectedHospitalId : 'hosp_city_01');
     setModalOpen(true);
   };
 
   const handleOpenEdit = (user: User) => {
     setEditingUser(user);
     setName(user.name);
-    setPhone(user.phone);
+    setPhone(user.phone || '');
     setEmail(user.email || '');
     setRole(user.role);
     setLinkedDoctorId(user.linked_doctor_id || '');
+    setStaffHospitalId(user.hospital_id || 'hosp_city_01');
     setModalOpen(true);
   };
 
@@ -107,6 +156,7 @@ export const StaffPage: React.FC = () => {
           phone,
           email: email || undefined,
           role,
+          hospital_id: staffHospitalId,
           linked_doctor_id: role === 'doctor' ? linkedDoctorId : undefined,
         });
       } else {
@@ -115,6 +165,7 @@ export const StaffPage: React.FC = () => {
           phone,
           email: email || undefined,
           role,
+          hospital_id: staffHospitalId,
           linked_doctor_id: role === 'doctor' ? linkedDoctorId : undefined,
           preferred_language: 'en',
           is_verified: true,
@@ -194,6 +245,37 @@ export const StaffPage: React.FC = () => {
           <div className="text-[11px] text-ink/65">{row.email || 'No email registered'}</div>
         </div>
       ),
+    },
+    {
+      key: 'hospital_id' as any,
+      header: 'Hospital & District',
+      sortable: true,
+      render: (row) => {
+        const hospId = row.hospital_id || 'hosp_city_01';
+        const hosp = mockHospitals.find((h) => h._id === hospId);
+        const hospName = hosp?.name || 'City Hospital';
+        const district = hosp?.city || 'Chennai';
+        const districtColor =
+          district === 'Madurai'
+            ? 'bg-amber-100 text-amber-900 border-amber-300'
+            : district === 'Coimbatore'
+            ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+            : 'bg-blue-100 text-blue-900 border-blue-300';
+
+        return (
+          <div>
+            <div className="font-semibold text-ink flex items-center gap-1.5 text-xs">
+              <Hospital className="w-3.5 h-3.5 text-accent shrink-0" />
+              <span className="line-clamp-1">{hospName}</span>
+            </div>
+            <div className="mt-0.5">
+              <span className={`text-[10px] px-2 py-0.2 rounded-full font-bold border ${districtColor}`}>
+                {district}
+              </span>
+            </div>
+          </div>
+        );
+      },
     },
     {
       key: 'role',
@@ -294,7 +376,7 @@ export const StaffPage: React.FC = () => {
       <PageHeader
         eyebrow="STAFF"
         title="Staff Accounts & Roles"
-        description="User account administration, role assignments, self-deactivation security guards, and capability access matrix."
+        description="Multi-hospital staff directory, role assignments, self-deactivation security guards, and capability access matrix."
         actions={
           <Button
             variant="primary"
@@ -307,10 +389,96 @@ export const StaffPage: React.FC = () => {
         }
       />
 
+      {/* Hospital Level Split-up Filter Bar */}
+      <div className="bg-base border border-ink/10 rounded-card p-4 space-y-3">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          {/* District Selector Tabs */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0">
+            <span className="text-xs font-bold uppercase tracking-wider text-ink/60 mr-1 shrink-0">
+              District:
+            </span>
+            {['all', 'Chennai', 'Madurai', 'Coimbatore'].map((district) => {
+              const isActive = selectedDistrict === district;
+              return (
+                <button
+                  key={district}
+                  type="button"
+                  onClick={() => {
+                    setSelectedDistrict(district);
+                    setSelectedHospitalId('all');
+                  }}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-ink text-base shadow-xs'
+                      : 'bg-ink/5 text-ink/70 hover:bg-ink/10 hover:text-ink'
+                  }`}
+                >
+                  {district === 'all' ? 'All Districts' : district}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Hospital Filter Dropdown */}
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-bold uppercase tracking-wider text-ink/60 shrink-0">
+              Hospital:
+            </label>
+            <select
+              value={selectedHospitalId}
+              onChange={(e) => setSelectedHospitalId(e.target.value)}
+              className="text-xs rounded-card bg-surface border border-ink/15 text-ink py-1.5 px-3 focus:outline-hidden focus:border-accent"
+            >
+              <option value="all">All Hospitals ({users.length} total staff)</option>
+              {filteredHospitalsForSelect.map((h) => {
+                const count = users.filter((u) => (u.hospital_id || 'hosp_city_01') === h._id).length;
+                return (
+                  <option key={h._id} value={h._id}>
+                    {h.name} [{h.city}] — {count} staff
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        </div>
+
+        {/* Quick info bar showing active filter count */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-ink/5 text-xs text-ink/65">
+          <div className="flex items-center gap-2">
+            <span>Showing</span>
+            <span className="font-bold text-ink">{filteredUsers.length}</span>
+            <span>staff members</span>
+            {selectedHospitalId !== 'all' && (
+              <span className="bg-accent/15 text-accent font-semibold px-2 py-0.5 rounded-full text-[11px]">
+                {mockHospitals.find((h) => h._id === selectedHospitalId)?.name}
+              </span>
+            )}
+            {selectedDistrict !== 'all' && (
+              <span className="bg-ink/10 text-ink font-semibold px-2 py-0.5 rounded-full text-[11px]">
+                {selectedDistrict}
+              </span>
+            )}
+          </div>
+
+          {(selectedHospitalId !== 'all' || selectedDistrict !== 'all') && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedHospitalId('all');
+                setSelectedDistrict('all');
+              }}
+              className="text-xs text-accent font-semibold hover:underline cursor-pointer"
+            >
+              Reset filters
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Staff Users Table */}
       <DataTable
         columns={columns}
-        data={users}
+        data={filteredUsers}
         keyExtractor={(row) => row.id}
         defaultSortKey="name"
         defaultSortDir="asc"
@@ -441,6 +609,16 @@ export const StaffPage: React.FC = () => {
             placeholder="staff@cityhospital.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+          />
+
+          <Select
+            label="Hospital Assignment *"
+            value={staffHospitalId}
+            onChange={(e) => setStaffHospitalId(e.target.value)}
+            options={mockHospitals.map((h) => ({
+              value: h._id,
+              label: `${h.name} (${h.city})`,
+            }))}
           />
 
           <Select

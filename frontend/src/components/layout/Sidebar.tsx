@@ -183,24 +183,34 @@ export function DesktopSidebar({
             )}
           </div>
 
-          {/* Footer: custom footer if provided, else default user/logout if no children */}
+          {/* Footer: custom footer if provided, else default user/logout if onLogout is provided */}
           {footer ? (
             <div style={{ marginTop: 'auto', paddingTop: '16px' }}>
               {footer}
             </div>
-          ) : !children ? (
+          ) : onLogout ? (
             <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid rgba(253,249,240,0.08)' }}>
-              <p style={{ fontSize: '13px', color: 'rgba(253,249,240,0.45)', padding: '0 12px 12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {user?.name}
-              </p>
+              {user?.name && (
+                <p style={{ fontSize: '13px', color: 'rgba(253,249,240,0.45)', padding: '0 12px 8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {user.name}
+                </p>
+              )}
               <button
                 onClick={onLogout}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '10px',
                   padding: '10px 12px', borderRadius: '10px',
-                  fontSize: '14px', fontWeight: 500, color: 'rgba(253,249,240,0.5)',
+                  fontSize: '14px', fontWeight: 500, color: 'rgba(253,249,240,0.65)',
                   background: 'none', border: 'none', cursor: 'pointer',
-                  width: '100%', fontFamily: 'var(--font-sans)', transition: 'color 0.2s',
+                  width: '100%', fontFamily: 'var(--font-sans)', transition: 'color 0.2s, background-color 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(253,249,240,0.08)';
+                  e.currentTarget.style.color = 'var(--color-base)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = 'rgba(253,249,240,0.65)';
                 }}
               >
                 <LogOut size={17} strokeWidth={1.8} />

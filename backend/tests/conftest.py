@@ -21,9 +21,10 @@ from app.models.hospitals import Department, Doctor, Hospital
 async def setup_test_db():
     """Initialize test database using MONGODB_DB_TEST (or mongomock-motor when offline)."""
     settings = get_settings()
+    connected = False
     if settings.MONGODB_URI:
         connected = await init_db(database_name=settings.MONGODB_DB_TEST)
-    else:
+    if not connected:
         import mongomock.database
         _orig_list = mongomock.database.Database.list_collection_names
         def _patched_list(self, *args, **kwargs):

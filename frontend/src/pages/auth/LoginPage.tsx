@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuthStore, mockLogin } from '@/store/authStore';
+import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton';
 
 export default function LoginPage() {
   const [identifier, setIdentifier] = useState('');
@@ -233,25 +234,7 @@ export default function LoginPage() {
           </div>
 
           {/* Google Button */}
-          <button
-            disabled
-            title="Coming soon"
-            style={{
-              width: '100%', padding: '14px', borderRadius: '12px',
-              backgroundColor: 'transparent', color: 'var(--color-muted)',
-              border: '1.5px solid rgba(154,110,86,0.15)', fontSize: '15px', fontWeight: 600,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px',
-              cursor: 'not-allowed', opacity: 0.7
-            }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M22.56 12.25C22.56 11.47 22.49 10.72 22.36 10H12V14.26H17.92C17.67 15.63 16.89 16.79 15.72 17.57V20.34H19.28C21.36 18.42 22.56 15.6 22.56 12.25Z" fill="#4285F4"/>
-              <path d="M12 23C14.97 23 17.46 22.02 19.28 20.34L15.72 17.57C14.73 18.23 13.48 18.63 12 18.63C9.14 18.63 6.71 16.7 5.84 14.12H2.18V16.96C3.99 20.53 7.7 23 12 23Z" fill="#34A853"/>
-              <path d="M5.84 14.12C5.62 13.47 5.49 12.75 5.49 12C5.49 11.25 5.62 10.53 5.84 9.88V7.04H2.18C1.43 8.54 1 10.21 1 12C1 13.79 1.43 15.46 2.18 16.96L5.84 14.12Z" fill="#FBBC05"/>
-              <path d="M12 5.38C13.62 5.38 15.06 5.93 16.2 7.02L19.36 3.86C17.45 2.08 14.97 1 12 1C7.7 1 3.99 3.47 2.18 7.04L5.84 9.88C6.71 7.3 9.14 5.38 12 5.38Z" fill="#EA4335"/>
-            </svg>
-            Continue with Google <span style={{ fontSize: '11px', backgroundColor: 'rgba(154,110,86,0.1)', padding: '2px 6px', borderRadius: '4px' }}>Coming soon</span>
-          </button>
+          <GoogleAuthButton mode="login" />
 
           {/* Register Link */}
           <div style={{ textAlign: 'center', marginTop: '32px' }}>

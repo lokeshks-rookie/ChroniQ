@@ -31,9 +31,9 @@ class NotificationPreferences(BaseModel):
 
 class User(Document):
     name: str
-    phone: str
+    phone: Optional[str] = None
     email: Optional[str] = None
-    password_hash: str
+    password_hash: Optional[str] = None
     role: Role = Role.PATIENT
     hospital_id: Optional[str] = None  # String hospital ID (e.g. hosp_city_01)
     preferred_language: str = "en"  # en, ta, hi, te, ml, kn
@@ -48,6 +48,9 @@ class User(Document):
     deletion_requested_at: Optional[datetime] = None
     notification_preferences: NotificationPreferences = Field(default_factory=NotificationPreferences)
 
+    # Google OAuth
+    google_id: Optional[str] = None
+
     # Doctor specific link
     linked_doctor_id: Optional[str] = None
 
@@ -57,8 +60,9 @@ class User(Document):
     class Settings:
         name = "users"
         indexes = [
-            IndexModel([("phone", ASCENDING)], unique=True),
-            IndexModel([("email", ASCENDING)], unique=True, partialFilterExpression={"email": {"$type": "string"}}),
+            IndexModel([("phone", ASCENDING)], unique=True, sparse=True),
+            IndexModel([("email", ASCENDING)], unique=True, sparse=True),
+            IndexModel([("google_id", ASCENDING)], unique=True, sparse=True),
             IndexModel([("role", ASCENDING), ("hospital_id", ASCENDING)]),
         ]
 

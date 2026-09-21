@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { mockRegister } from '@/store/authStore';
+import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton';
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
@@ -301,6 +302,16 @@ export default function RegisterPage() {
               {isLoading ? 'Creating account...' : 'Register'}
             </button>
           </form>
+
+          {/* Divider */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', margin: '24px 0' }}>
+            <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(154,110,86,0.15)' }} />
+            <span style={{ fontSize: '13px', color: 'var(--color-muted)', fontWeight: 500 }}>OR</span>
+            <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(154,110,86,0.15)' }} />
+          </div>
+
+          {/* Google Button */}
+          <GoogleAuthButton mode="register" />
 
           {/* Login Link */}
           <div style={{ textAlign: 'center', marginTop: '32px' }}>

@@ -14,6 +14,11 @@ from app.models import DOCUMENT_MODELS
 logger = logging.getLogger("chroniq.db")
 
 _client: Optional[AsyncIOMotorClient] = None
+_is_connected: bool = False
+
+
+def is_db_connected() -> bool:
+    return _is_connected
 
 
 async def init_db(database_name: Optional[str] = None):
@@ -31,22 +36,43 @@ async def init_db(database_name: Optional[str] = None):
         return False
 
     try:
-        _client = AsyncIOMotorClient(settings.MONGODB_URI, tz_aware=True)
+        _client = AsyncIOMotorClient(settings.MONGODB_URI, tz_aware=True, serverSelectionTimeoutMS=5000)
         db = _client[db_name]
-        await init_beanie(
-            database=db,
-            document_models=DOCUMENT_MODELS,
-        )
+        try:
+            await init_beanie(
+                database=db,
+                document_models=DOCUMENT_MODELS,
+            )
+        except Exception as idx_err:
+            err_str = str(idx_err)
+            if "IndexKeySpecsConflict" in err_str or "IndexOptionsConflict" in err_str or "same name as the requested index" in err_str:
+                logger.warning(f"Index conflict detected in database '{db_name}'. Dropping outdated indexes on 'users' collection to apply new schema...")
+                try:
+                    user_indexes = await db["users"].index_information()
+                    for idx_name in user_indexes:
+                        if idx_name != "_id_":
+                            await db["users"].drop_index(idx_name)
+                except Exception as drop_err:
+                    logger.warning(f"Failed to drop old indexes on 'users': {drop_err}")
+                await init_beanie(
+                    database=db,
+                    document_models=DOCUMENT_MODELS,
+                )
+            else:
+                raise idx_err
         logger.info(f"Connected to MongoDB database '{db_name}' and initialized Beanie models.")
+        _is_connected = True
         return True
     except Exception as e:
+        _is_connected = False
         logger.error(f"Failed to connect to MongoDB: {e}")
         return False
 
 
 async def close_db():
     """Close MongoDB connection pool."""
-    global _client
+    global _client, _is_connected
+    _is_connected = False
     if _client:
         _client.close()
         logger.info("MongoDB client connection closed.")

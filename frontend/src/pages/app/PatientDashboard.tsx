@@ -1,14 +1,72 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarDays, Search, Clock, ChevronRight, Bell, BellDot } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { mockGetMyNextAppointment, mockGetRecentNotifications } from '@/data/mockData';
+import { bookingApi, api } from '@/services/api';
+
+import type { MockAppointment } from '@/data/mockData';
 import QueueStatusWidget from '@/components/ui/QueueStatusWidget';
 
 export default function PatientDashboard() {
   const { user } = useAuthStore();
-  const nextAppointment = mockGetMyNextAppointment();
-  const notifications = mockGetRecentNotifications(4);
+  const [nextAppointment, setNextAppointment] = useState<MockAppointment | null>(null);
+  const [notifications, setNotifications] = useState<any[]>([]);
   const firstName = user?.name?.split(' ')[0] || 'there';
+
+  useEffect(() => {
+    async function loadDashboardData() {
+      try {
+        const [apptsRes, notifsRes] = await Promise.allSettled([
+          bookingApi.getMyAppointments(),
+          api.get('/notifications'),
+        ]);
+
+        if (apptsRes.status === 'fulfilled' && Array.isArray(apptsRes.value.data)) {
+          const raw = apptsRes.value.data;
+          const active = raw
+            .filter((a: any) => ['booked', 'upcoming', 'in_queue', 'called'].includes(a.status))
+            .map((a: any) => ({
+              _id: a.id || a.booking_code,
+              doctorId: a.doctor_id,
+              hospitalId: a.hospital_id,
+              doctorName: a.doctor_name,
+              hospitalName: a.hospital_name,
+              specialty: a.department_name || '',
+              date: a.scheduled_start ? a.scheduled_start.split('T')[0] : '',
+              time: a.scheduled_start ? a.scheduled_start.split('T')[1]?.slice(0, 5) : '',
+              status: a.status === 'booked' ? 'upcoming' : a.status,
+              token: a.token,
+              booking_code: a.booking_code,
+              reason: a.reason,
+              patientName: a.patient?.name || '',
+              fee: a.fee || 0,
+            }));
+          setNextAppointment(active.length > 0 ? active[0] : null);
+        } else {
+          setNextAppointment(null);
+        }
+
+        if (notifsRes.status === 'fulfilled' && Array.isArray(notifsRes.value.data)) {
+          const rawNotes = notifsRes.value.data.slice(0, 4).map((n: any) => ({
+            _id: n.id,
+            title: n.title,
+            body: n.message,
+            time: n.created_at ? new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently',
+            read: Boolean(n.read),
+          }));
+          setNotifications(rawNotes);
+        } else {
+          setNotifications([]);
+        }
+      } catch (err) {
+        console.warn('Failed to load dashboard data:', err);
+        setNextAppointment(null);
+        setNotifications([]);
+      }
+    }
+    loadDashboardData();
+  }, []);
+
 
   const today = new Date();
   const dateStr = today.toLocaleDateString('en-IN', {
@@ -175,38 +233,54 @@ export default function PatientDashboard() {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {notifications.map((n) => (
-            <div
-              key={n._id}
-              style={{
-                display: 'flex', alignItems: 'flex-start', gap: '12px',
-                padding: '14px 16px', borderRadius: '12px',
-                backgroundColor: n.read ? 'transparent' : 'rgba(154,110,86,0.04)',
-                border: `1px solid ${n.read ? 'rgba(154,110,86,0.08)' : 'rgba(154,110,86,0.12)'}`,
-              }}
-            >
-              <div style={{
-                width: '32px', height: '32px', borderRadius: '8px',
-                backgroundColor: n.read ? 'rgba(154,110,86,0.06)' : 'rgba(154,110,86,0.1)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                marginTop: '2px',
-              }}>
-                {n.read ? <Bell size={14} color="var(--color-muted)" /> : <BellDot size={14} color="var(--color-accent)" />}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: '14px', fontWeight: n.read ? 500 : 600, color: 'var(--color-ink)', marginBottom: '2px' }}>
-                  {n.title}
-                </p>
-                <p style={{ fontSize: '13px', color: 'var(--color-muted)', lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {n.body}
-                </p>
-              </div>
-              <span style={{ fontSize: '12px', color: 'var(--color-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                {n.time}
-              </span>
+          {notifications.length === 0 ? (
+            <div style={{
+              textAlign: 'center', padding: '32px 16px', borderRadius: '12px',
+              backgroundColor: 'var(--color-base)', border: '1px dashed rgba(154,110,86,0.2)'
+            }}>
+              <Bell size={28} strokeWidth={1.4} color="var(--color-muted)" style={{ margin: '0 auto 8px', opacity: 0.5 }} />
+              <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--color-ink)', marginBottom: '2px' }}>
+                No recent activity
+              </p>
+              <p style={{ fontSize: '13px', color: 'var(--color-muted)' }}>
+                Notifications and updates regarding your appointments will appear here.
+              </p>
             </div>
-          ))}
+          ) : (
+            notifications.map((n) => (
+              <div
+                key={n._id}
+                style={{
+                  display: 'flex', alignItems: 'flex-start', gap: '12px',
+                  padding: '14px 16px', borderRadius: '12px',
+                  backgroundColor: n.read ? 'transparent' : 'rgba(154,110,86,0.04)',
+                  border: `1px solid ${n.read ? 'rgba(154,110,86,0.08)' : 'rgba(154,110,86,0.12)'}`,
+                }}
+              >
+                <div style={{
+                  width: '32px', height: '32px', borderRadius: '8px',
+                  backgroundColor: n.read ? 'rgba(154,110,86,0.06)' : 'rgba(154,110,86,0.1)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  marginTop: '2px',
+                }}>
+                  {n.read ? <Bell size={14} color="var(--color-muted)" /> : <BellDot size={14} color="var(--color-accent)" />}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: '14px', fontWeight: n.read ? 500 : 600, color: 'var(--color-ink)', marginBottom: '2px' }}>
+                    {n.title}
+                  </p>
+                  <p style={{ fontSize: '13px', color: 'var(--color-muted)', lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {n.body}
+                  </p>
+                </div>
+                <span style={{ fontSize: '12px', color: 'var(--color-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  {n.time}
+                </span>
+              </div>
+            ))
+          )}
         </div>
+
       </div>
     </div>
   );

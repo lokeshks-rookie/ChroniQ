@@ -59,6 +59,8 @@ class VerifyContactRequest(BaseModel):
 
 class ProfileUpdateRequest(BaseModel):
     name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
     age: Optional[int] = None
     gender: Optional[str] = None
     preferred_language: Optional[str] = None
@@ -68,7 +70,7 @@ class ProfileUpdateRequest(BaseModel):
 class UserResponse(BaseModel):
     id: str
     name: str
-    phone: str
+    phone: Optional[str] = None
     email: Optional[str] = None
     role: Role
     hospital_id: Optional[str] = None
@@ -88,3 +90,9 @@ class UserResponse(BaseModel):
 class AuthResponse(BaseModel):
     token: str
     user: UserResponse
+
+
+class GoogleAuthRequest(BaseModel):
+    credential: Optional[str] = None
+    code: Optional[str] = None
+    redirect_uri: Optional[str] = None

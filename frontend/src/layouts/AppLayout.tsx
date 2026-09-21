@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/store/authStore';
 import { DesktopSidebar } from '@/components/layout/Sidebar';
 import { useNotificationsStore } from '@/store/notificationsStore';
+import { usePatientStore } from '@/store/patientStore';
 
 const NAV = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/app' },
@@ -44,6 +45,10 @@ export default function AppLayout() {
     const cleanup = startPolling();
     return cleanup;
   }, [startPolling]);
+
+  useEffect(() => {
+    usePatientStore.getState().fetchPatientData();
+  }, []);
 
   // Close menus on route change
   useEffect(() => {

@@ -8,7 +8,7 @@ from fastapi import HTTPException, status
 from app.core.db import get_client
 from app.models.accounts import FamilyMember, User
 from app.models.booking import Appointment, PatientSnapshot, QueueEntry, StatusEvent
-from app.models.common import AppointmentStatus, AppointmentType, CreatedVia, QueueStatus, SlotStatus, utcnow
+from app.models.common import AppointmentStatus, AppointmentType, CreatedVia, QueueStatus, SlotStatus, utcnow, ensure_utc
 from app.models.hospitals import Department, Doctor, Hospital
 from app.models.scheduling import Slot
 
@@ -39,7 +39,8 @@ async def confirm_booking(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Slot not found")
 
     now = utcnow()
-    if slot.status != SlotStatus.HELD or (slot.held_until and slot.held_until < now):
+    held_until = ensure_utc(slot.held_until)
+    if slot.status != SlotStatus.HELD or (held_until and held_until < now):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Slot is no longer held. Please select and hold a slot again."

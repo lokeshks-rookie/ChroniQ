@@ -46,7 +46,7 @@ function getCurrentPatientId(): string {
  * Update the current patient's profile (name, age, gender, language, etc.)
  */
 export async function updateProfile(
-  updates: Partial<Pick<PatientUser, 'name' | 'age' | 'gender' | 'preferred_language' | 'photo_url'>>
+  updates: Partial<Pick<PatientUser, 'name' | 'age' | 'gender' | 'preferred_language' | 'photo_url' | 'phone' | 'email'>>
 ): Promise<PatientUser> {
   checkSimulatedError();
   try {
@@ -57,6 +57,19 @@ export async function updateProfile(
       id: updated.id || updated._id,
     };
     usePatientStore.getState().updateProfile(normalized);
+
+    // Keep authStore user synchronized
+    const currentAuthUser = useAuthStore.getState().user;
+    if (currentAuthUser) {
+      useAuthStore.getState().setAuth(
+        {
+          ...currentAuthUser,
+          ...normalized,
+        },
+        useAuthStore.getState().token || ''
+      );
+    }
+
     return normalized;
   } catch (err: any) {
     throw new Error(getApiErrorMessage(err, 'Failed to update profile'));
@@ -84,6 +97,19 @@ export async function verifyContact(
       (updates as Record<string, unknown>).email_verified = true;
     }
     usePatientStore.getState().updateProfile(updates);
+
+    // Keep authStore user synchronized
+    const currentAuthUser = useAuthStore.getState().user;
+    if (currentAuthUser) {
+      useAuthStore.getState().setAuth(
+        {
+          ...currentAuthUser,
+          ...updates,
+        },
+        useAuthStore.getState().token || ''
+      );
+    }
+
     return { success: true, message: res.data?.message };
   } catch (err: any) {
     return { success: false, message: getApiErrorMessage(err, 'Invalid or expired verification code.') };
