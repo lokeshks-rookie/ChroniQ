@@ -1,7 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Loader2, AlertCircle, ArrowLeft, CheckCircle2 } from 'lucide-react';
-import { googleLogin } from '@/store/authStore';
+import { googleLogin, type AuthUser } from '@/store/authStore';
+
+/** Storage key matching the one in GoogleAuthButton — used for CSRF validation. */
+const OAUTH_NONCE_KEY = 'chroniq_oauth_nonce';
+
+/**
+ * Determine the post-login redirect path based on user role.
+ * Falls back to /app for patient or unknown roles.
+ */
+function getRedirectForRole(role: string): string {
+  switch (role) {
+    case 'receptionist':
+    case 'hospital_admin':
+      return '/admin';
+    case 'doctor':
+      return '/doctor';
+    case 'super_admin':
+      return '/super';
+    case 'patient':
+    default:
+      return '/app';
+  }
+}
 
 export const OAuthCallbackPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -11,10 +33,9 @@ export const OAuthCallbackPage: React.FC = () => {
 
   useEffect(() => {
     const handleCallback = async () => {
-      const code = searchParams.get('code');
+      // ── 1. Check for errors from Google ──────────────────────────────
       const error = searchParams.get('error');
       const errorDescription = searchParams.get('error_description');
-      const stateParam = searchParams.get('state');
 
       if (error) {
         setStatus('error');
@@ -22,37 +43,75 @@ export const OAuthCallbackPage: React.FC = () => {
         return;
       }
 
+      // ── 2. Extract authorization code ────────────────────────────────
+      const code = searchParams.get('code');
       if (!code) {
         setStatus('error');
         setErrorMessage('No authorization code was received from Google.');
         return;
       }
 
+      // ── 3. Validate CSRF nonce from state parameter ──────────────────
+      const stateParam = searchParams.get('state');
+      let parsedState: { nonce?: string; mode?: string; redirect?: string } = {};
+
+      if (stateParam) {
+        try {
+          parsedState = JSON.parse(stateParam);
+        } catch {
+          setStatus('error');
+          setErrorMessage('Invalid OAuth state parameter. Please try signing in again.');
+          return;
+        }
+      }
+
+      // Verify the nonce matches what we stored before redirecting to Google
+      let storedNonce: string | null = null;
+      try {
+        storedNonce = sessionStorage.getItem(OAUTH_NONCE_KEY);
+        // Always clean up the nonce after reading — single use
+        sessionStorage.removeItem(OAUTH_NONCE_KEY);
+      } catch {
+        // sessionStorage may be unavailable
+      }
+
+      if (storedNonce && parsedState.nonce && storedNonce !== parsedState.nonce) {
+        setStatus('error');
+        setErrorMessage(
+          'Security validation failed: the OAuth state does not match. ' +
+          'This may indicate a CSRF attack. Please try signing in again.'
+        );
+        return;
+      }
+
+      // ── 4. Exchange code with backend ────────────────────────────────
       try {
         const redirectUri = `${window.location.origin}/auth/callback`;
-        await googleLogin({ code, redirect_uri: redirectUri });
+        const result = await googleLogin({ code, redirect_uri: redirectUri });
 
         setStatus('success');
 
-        let targetRedirect = '/app';
-        if (stateParam) {
-          try {
-            const parsedState = JSON.parse(stateParam);
-            if (parsedState.redirect && parsedState.redirect.startsWith('/') && !parsedState.redirect.startsWith('//')) {
-              targetRedirect = parsedState.redirect;
-            }
-          } catch {
-            // Ignore JSON parse errors in state
-          }
+        // Determine where to redirect: honour explicit redirect from state,
+        // otherwise route based on the user's role.
+        let targetRedirect = getRedirectForRole(result.user.role);
+
+        if (
+          parsedState.redirect &&
+          parsedState.redirect.startsWith('/') &&
+          !parsedState.redirect.startsWith('//')
+        ) {
+          targetRedirect = parsedState.redirect;
         }
 
-        // Smooth brief transition
+        // Brief success animation before navigating
         setTimeout(() => {
           navigate(targetRedirect, { replace: true });
         }, 600);
       } catch (err: any) {
         setStatus('error');
-        setErrorMessage(err.message || 'Failed to complete Google authentication. Please try again.');
+        setErrorMessage(
+          err.message || 'Failed to complete Google authentication. Please try again.'
+        );
       }
     };
 
@@ -85,7 +144,7 @@ export const OAuthCallbackPage: React.FC = () => {
       >
         {status === 'loading' && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
-            <Loader2 size={36} className="animate-spin text-amber-800" style={{ color: 'var(--color-accent)' }} />
+            <Loader2 size={36} className="animate-spin" style={{ color: 'var(--color-accent)' }} />
             <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--color-ink)' }}>
               Verifying Google Account
             </h2>
@@ -102,7 +161,7 @@ export const OAuthCallbackPage: React.FC = () => {
               Authentication Successful
             </h2>
             <p style={{ fontSize: '14px', color: 'var(--color-muted)' }}>
-              Welcome to ChroniQ. Redirecting you to your patient dashboard...
+              Welcome to ChroniQ. Redirecting you now...
             </p>
           </div>
         )}

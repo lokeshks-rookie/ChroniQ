@@ -60,9 +60,24 @@ class User(Document):
     class Settings:
         name = "users"
         indexes = [
-            IndexModel([("phone", ASCENDING)], unique=True, sparse=True),
-            IndexModel([("email", ASCENDING)], unique=True, sparse=True),
-            IndexModel([("google_id", ASCENDING)], unique=True, sparse=True),
+            IndexModel(
+                [("phone", ASCENDING)],
+                unique=True,
+                partialFilterExpression={"phone": {"$type": "string"}},
+                name="phone_1",
+            ),
+            IndexModel(
+                [("email", ASCENDING)],
+                unique=True,
+                partialFilterExpression={"email": {"$type": "string"}},
+                name="email_1",
+            ),
+            IndexModel(
+                [("google_id", ASCENDING)],
+                unique=True,
+                partialFilterExpression={"google_id": {"$type": "string"}},
+                name="google_id_1",
+            ),
             IndexModel([("role", ASCENDING), ("hospital_id", ASCENDING)]),
         ]
 

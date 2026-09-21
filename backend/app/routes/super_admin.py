@@ -38,7 +38,7 @@ async def list_all_hospitals(
         hospitals = await Hospital.find(Hospital.status == status_filter).to_list()
     else:
         hospitals = await Hospital.find_all().to_list()
-    return [h.dict() for h in hospitals]
+    return [h.model_dump() for h in hospitals]
 
 
 @router.post("/hospitals", status_code=status.HTTP_201_CREATED)
@@ -61,7 +61,7 @@ async def onboard_hospital(
         location={"type": "Point", "coordinates": [payload.lng or 80.2707, payload.lat or 13.0827]},
     )
     await hospital.insert()
-    return hospital.dict()
+    return hospital.model_dump()
 
 
 @router.patch("/hospitals/{id}/status")
@@ -139,4 +139,4 @@ async def global_audit_log(
 ):
     """View platform-wide security and operations audit log."""
     logs = await AuditLog.find_all().sort("-timestamp").limit(limit).to_list()
-    return [l.dict() for l in logs]
+    return [l.model_dump() for l in logs]

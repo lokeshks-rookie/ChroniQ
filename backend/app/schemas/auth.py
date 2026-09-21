@@ -9,7 +9,7 @@ from app.models.common import Role
 
 class RegisterRequest(BaseModel):
     name: str
-    phone: str
+    phone: Optional[str] = None
     email: Optional[str] = None
     password: str
     role: Optional[Role] = Role.PATIENT
@@ -93,6 +93,6 @@ class AuthResponse(BaseModel):
 
 
 class GoogleAuthRequest(BaseModel):
-    credential: Optional[str] = None
-    code: Optional[str] = None
-    redirect_uri: Optional[str] = None
+    """Request body for Google OAuth authorization code exchange."""
+    code: str
+    redirect_uri: str

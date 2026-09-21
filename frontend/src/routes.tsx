@@ -37,9 +37,6 @@ const DoctorProfilePage = lazy(() => import('@/pages/doctors/DoctorProfilePage')
 // ── Section 4.1: Auth Pages ───────────────────────────────────
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
 const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage'));
-const VerifyOtpPage = lazy(() => import('@/pages/auth/VerifyOtpPage'));
-const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage'));
-const ResetPasswordPage = lazy(() => import('@/pages/auth/ResetPasswordPage'));
 const OAuthCallbackPage = lazy(() => import('@/pages/auth/OAuthCallbackPage'));
 
 // ── Section 4.2: Patient Portal (Pages 10–19) ─────────────────
@@ -154,30 +151,6 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={<PageLoadingFallback />}>
             <RegisterPage />
-          </Suspense>
-        ),
-      },
-      {
-        path: '/verify-otp',
-        element: (
-          <Suspense fallback={<PageLoadingFallback />}>
-            <VerifyOtpPage />
-          </Suspense>
-        ),
-      },
-      {
-        path: '/forgot-password',
-        element: (
-          <Suspense fallback={<PageLoadingFallback />}>
-            <ForgotPasswordPage />
-          </Suspense>
-        ),
-      },
-      {
-        path: '/reset-password',
-        element: (
-          <Suspense fallback={<PageLoadingFallback />}>
-            <ResetPasswordPage />
           </Suspense>
         ),
       },

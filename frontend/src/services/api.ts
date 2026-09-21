@@ -24,14 +24,12 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err: AxiosError) => {
-    if (err.response?.status === 401) {
+    if (err.response?.status === 401 && typeof window !== 'undefined') {
       const path = window.location.pathname;
       const isAuthPath =
         path.startsWith('/login') ||
         path.startsWith('/register') ||
-        path.startsWith('/verify-otp') ||
-        path.startsWith('/forgot-password') ||
-        path.startsWith('/reset-password');
+        path.startsWith('/auth/callback');
 
       if (!isAuthPath) {
         useAuthStore.getState().clearAuth();
@@ -64,17 +62,9 @@ export const authApi = {
   login: (data: { identifier?: string; phone?: string; email?: string; password: string }) =>
     api.post('/auth/login', data),
   register: (data: object) => api.post('/auth/register', data),
-  verifyOtp: (data: { target: string; code: string; purpose: string }) =>
-    api.post('/auth/verify-otp', data),
-  resendOtp: (data: { target: string; purpose: string }) =>
-    api.post('/auth/resend-otp', data),
-  forgotPassword: (data: { target: string }) =>
-    api.post('/auth/forgot-password', data),
-  resetPassword: (data: { target: string; code: string; new_password: string }) =>
-    api.post('/auth/reset-password', data),
   refresh: (refreshToken: string) =>
     api.post('/auth/refresh', { refresh_token: refreshToken }),
-  googleAuth: (data: { credential?: string; code?: string; redirect_uri?: string }) =>
+  googleAuth: (data: { code: string; redirect_uri: string }) =>
     api.post('/auth/google', data),
   me: () => api.get('/auth/me'),
 };

@@ -1,9 +1,12 @@
-"""Authentication, Registration, OTP, and User Profile Routes."""
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 import httpx
 from jwt import PyJWTError
+from pymongo.errors import DuplicateKeyError
+
+logger = logging.getLogger("chroniq.auth")
 
 from app.core.config import get_settings
 from app.core.dependencies import get_current_user
@@ -72,13 +75,21 @@ async def register(req: RegisterRequest):
     """Register a new patient or staff user."""
     settings = get_settings()
 
-    # Check for duplicate phone
-    existing_phone = await User.find_one(User.phone == req.phone)
-    if existing_phone:
+    # Require at least email or phone
+    if not req.phone and not req.email:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="An account with this phone number already exists.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Either an email address or phone number is required to register.",
         )
+
+    # Check for duplicate phone (only if provided)
+    if req.phone:
+        existing_phone = await User.find_one(User.phone == req.phone)
+        if existing_phone:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An account with this phone number already exists.",
+            )
 
     # Check for duplicate email if provided
     if req.email:
@@ -96,6 +107,9 @@ async def register(req: RegisterRequest):
             detail="Self-registration is restricted to patient accounts. Staff and administrator accounts must be provisioned by an administrator.",
         )
 
+    # When registering with email only (no phone), mark as verified immediately
+    is_verified = req.phone is None
+
     user = User(
         name=req.name,
         phone=req.phone,
@@ -104,29 +118,37 @@ async def register(req: RegisterRequest):
         role=Role.PATIENT,
         hospital_id=None,
         preferred_language=req.preferred_language or "en",
-        is_verified=False,
+        is_verified=is_verified,
+        email_verified=is_verified,
     )
     await user.insert()
 
-    # Generate OTP
-    code = generate_otp(settings.OTP_LENGTH)
-    expires_at = utcnow() + timedelta(minutes=settings.OTP_EXPIRE_MINUTES)
-    otp_doc = OtpCode(
-        target=req.phone,
-        purpose="register",
-        code_hash=hash_otp(code),
-        expires_at=expires_at,
-    )
-    await otp_doc.insert()
-
     token = create_access_token({"sub": str(user.id), "role": user.role.value})
-    resp = {
-        "message": "User registered successfully. Please verify your phone OTP.",
+    refresh_token = create_refresh_token({"sub": str(user.id)})
+
+    resp: Dict[str, Any] = {
+        "message": "Account created successfully.",
         "user": _to_user_response(user),
         "token": token,
+        "access_token": token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
     }
-    if settings.OTP_DEV_ECHO:
-        resp["otp"] = code
+
+    # Phone-based flow: generate OTP for verification
+    if req.phone:
+        code = generate_otp(settings.OTP_LENGTH)
+        expires_at = utcnow() + timedelta(minutes=settings.OTP_EXPIRE_MINUTES)
+        otp_doc = OtpCode(
+            target=req.phone,
+            purpose="register",
+            code_hash=hash_otp(code),
+            expires_at=expires_at,
+        )
+        await otp_doc.insert()
+        resp["message"] = "Account created. Please verify your phone number."
+        if settings.OTP_DEV_ECHO:
+            resp["otp"] = code
 
     return resp
 
@@ -175,129 +197,81 @@ async def login(req: LoginRequest):
     dependencies=[Depends(rate_limit(max_requests=20, key_prefix="auth_google"))],
 )
 async def google_auth(req: GoogleAuthRequest):
-    """Authenticate or register a patient user via Google OAuth (ID token credential or Authorization code)."""
+    """Authenticate or register a patient via Google OAuth authorization code exchange.
+
+    Flow:
+    1. Frontend redirects user to Google consent screen.
+    2. Google redirects back to frontend with an authorization code.
+    3. Frontend sends the code + redirect_uri to this endpoint.
+    4. Backend exchanges the code for tokens with Google.
+    5. Backend verifies the ID token using Google's public keys (JWKS).
+    6. Backend finds or creates a patient user and returns JWT tokens.
+    """
     settings = get_settings()
 
+    # ── 1. Validate server configuration ──────────────────────────────────
     if not settings.GOOGLE_CLIENT_ID:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Google OAuth is not configured on this server (GOOGLE_CLIENT_ID is missing).",
+            detail="Google OAuth is not configured on this server.",
+        )
+    if not settings.GOOGLE_CLIENT_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Server misconfiguration: GOOGLE_CLIENT_SECRET is missing.",
         )
 
-    claims: Dict[str, Any] = {}
-
-    # 1. Flow A: Authorization code exchange
-    if req.code:
-        if not settings.GOOGLE_CLIENT_SECRET:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Server misconfiguration: GOOGLE_CLIENT_SECRET is missing for code exchange.",
+    # ── 2. Exchange authorization code for tokens ─────────────────────────
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            token_resp = await client.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "code": req.code,
+                    "client_id": settings.GOOGLE_CLIENT_ID,
+                    "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                    "redirect_uri": req.redirect_uri,
+                    "grant_type": "authorization_code",
+                },
             )
-        redirect_uri = req.redirect_uri or settings.GOOGLE_REDIRECT_URI or f"{settings.FRONTEND_URL}/auth/callback"
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                token_resp = await client.post(
-                    "https://oauth2.googleapis.com/token",
-                    data={
-                        "code": req.code,
-                        "client_id": settings.GOOGLE_CLIENT_ID,
-                        "client_secret": settings.GOOGLE_CLIENT_SECRET,
-                        "redirect_uri": redirect_uri,
-                        "grant_type": "authorization_code",
-                    },
-                )
-                if token_resp.status_code != 200:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Google token exchange failed: {token_resp.text}",
-                    )
-                token_data = token_resp.json()
-                id_token = token_data.get("id_token")
-                access_token = token_data.get("access_token")
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Could not connect to Google authentication service: {exc}",
+        )
 
-                if id_token:
-                    info_resp = await client.get(
-                        "https://oauth2.googleapis.com/tokeninfo",
-                        params={"id_token": id_token},
-                    )
-                    if info_resp.status_code == 200:
-                        claims = info_resp.json()
-                    else:
-                        raise HTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Failed to verify Google ID token from code exchange.",
-                        )
-                elif access_token:
-                    info_resp = await client.get(
-                        "https://www.googleapis.com/oauth2/v3/userinfo",
-                        headers={"Authorization": f"Bearer {access_token}"},
-                    )
-                    if info_resp.status_code == 200:
-                        claims = info_resp.json()
-                    else:
-                        raise HTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Failed to retrieve Google user profile.",
-                        )
-                else:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Google token exchange returned neither id_token nor access_token.",
-                    )
-        except httpx.RequestError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Error connecting to Google authentication service: {exc}",
-            )
-
-    # 2. Flow B: Google Identity Services credential (ID token directly from frontend)
-    elif req.credential:
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                info_resp = await client.get(
-                    "https://oauth2.googleapis.com/tokeninfo",
-                    params={"id_token": req.credential},
-                )
-                if info_resp.status_code != 200:
-                    raise HTTPException(
-                        status_code=status.HTTP_401_UNAUTHORIZED,
-                        detail="Invalid or expired Google credential token.",
-                    )
-                claims = info_resp.json()
-        except httpx.RequestError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Error connecting to Google token verification service: {exc}",
-            )
-    else:
+    if token_resp.status_code != 200:
+        error_body = token_resp.text
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Either 'credential' or 'code' must be provided.",
+            detail=f"Google token exchange failed: {error_body}",
         )
 
-    # Validate claims
-    token_aud = claims.get("aud")
-    if token_aud and token_aud != settings.GOOGLE_CLIENT_ID:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Google token audience does not match configured client ID.",
-        )
-
-    token_iss = claims.get("iss")
-    if token_iss and token_iss not in ("accounts.google.com", "https://accounts.google.com"):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Google token has invalid issuer.",
-        )
-
-    raw_verified = claims.get("email_verified")
-    email_verified = (raw_verified is True) or (str(raw_verified).lower() == "true")
-    if not email_verified:
+    token_data = token_resp.json()
+    raw_id_token = token_data.get("id_token")
+    if not raw_id_token:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Your Google account email is not verified by Google. Please verify it before signing in.",
+            detail="Google did not return an ID token in the code exchange response.",
         )
 
+    # ── 3. Verify ID token using Google's public keys (JWKS) ──────────────
+    try:
+        from google.oauth2 import id_token as google_id_token
+        from google.auth.transport import requests as google_requests
+
+        claims = google_id_token.verify_oauth2_token(
+            raw_id_token,
+            google_requests.Request(),
+            audience=settings.GOOGLE_CLIENT_ID,
+        )
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Google ID token verification failed: {ve}",
+        )
+
+    # ── 4. Extract and validate user profile from verified claims ─────────
     email = claims.get("email")
     if not email:
         raise HTTPException(
@@ -305,6 +279,14 @@ async def google_auth(req: GoogleAuthRequest):
             detail="Google profile did not contain an email address.",
         )
     email = email.lower().strip()
+
+    raw_verified = claims.get("email_verified")
+    email_verified = (raw_verified is True) or (str(raw_verified).lower() == "true")
+    if not email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Your Google email is not verified. Please verify it with Google before signing in.",
+        )
 
     google_id = str(claims.get("sub")) if claims.get("sub") else None
     if not google_id:
@@ -316,29 +298,30 @@ async def google_auth(req: GoogleAuthRequest):
     name = claims.get("name") or claims.get("given_name") or email.split("@")[0]
     picture = claims.get("picture")
 
-    # 3. User lookup & Account Linking Safeguards
+    # ── 5. User lookup and account linking ────────────────────────────────
     user = await User.find_one(User.google_id == google_id)
     is_new_user = False
 
     if not user:
-        # Check if account with same email already exists
+        # Check if an account with this email already exists
         existing_by_email = await User.find_one(User.email == email)
+
         if existing_by_email:
-            # Safeguard 1: Privilege escalation prevention - Never allow Google login for staff/admin roles
+            # Block staff/admin accounts from using Google Sign-In
             if existing_by_email.role != Role.PATIENT:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Google Sign-In is restricted to patient accounts. Staff and administrator accounts must sign in using username/password credentials.",
+                    detail="Google Sign-In is only available for patient accounts. Staff must use username/password.",
                 )
 
-            # Safeguard 2: Duplicate Google account conflict check
+            # Block if already linked to a different Google account
             if existing_by_email.google_id and existing_by_email.google_id != google_id:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail="An account with this email address is already linked to another Google profile.",
+                    detail="This email is already linked to a different Google account.",
                 )
 
-            # Link existing patient account
+            # Link existing patient account to this Google profile
             user = existing_by_email
             user.google_id = google_id
             user.email_verified = True
@@ -348,13 +331,13 @@ async def google_auth(req: GoogleAuthRequest):
             user.updated_at = utcnow()
             await user.save()
         else:
-            # New registration: ALWAYS assign Role.PATIENT!
+            # Create new patient account
             user = User(
                 name=name,
                 email=email,
                 phone=None,
                 password_hash=None,
-                role=Role.PATIENT,  # Enforced: only PATIENT role
+                role=Role.PATIENT,
                 hospital_id=None,
                 preferred_language="en",
                 is_verified=True,
@@ -363,16 +346,31 @@ async def google_auth(req: GoogleAuthRequest):
                 photo_url=picture,
                 google_id=google_id,
             )
-            await user.insert()
-            is_new_user = True
+            try:
+                await user.insert()
+                is_new_user = True
+            except DuplicateKeyError as exc:
+                logger.warning(f"DuplicateKeyError on user creation for {email}: {exc}")
+                # Race condition: another request created the user in parallel
+                user = await User.find_one(User.google_id == google_id)
+                if not user:
+                    user = await User.find_one(User.email == email)
+                if not user:
+                    logger.error(
+                        f"User creation failed with DuplicateKeyError for {email}: {exc}"
+                    )
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Unable to create account due to a conflict. Please try again.",
+                    )
 
+    # ── 6. Final checks and JWT generation ────────────────────────────────
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This account has been deactivated. Please contact support.",
         )
 
-    # Generate JWT tokens
     access_token = create_access_token({
         "sub": str(user.id),
         "role": user.role.value,

@@ -21,6 +21,15 @@ TEST_USER_EMAILS = [
     "standard_pwd_patient@test.local",
 ]
 
+MOCK_TOKEN_EXCHANGE_RESPONSE = Response(
+    200,
+    json={
+        "id_token": "mock_valid_id_token",
+        "access_token": "mock_access_token",
+        "token_type": "Bearer",
+    },
+)
+
 
 @pytest_asyncio.fixture(autouse=True)
 async def cleanup_test_users():
@@ -36,7 +45,10 @@ async def test_google_auth_unconfigured(async_client: AsyncClient, monkeypatch):
     settings = get_settings()
     monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", None)
 
-    resp = await async_client.post("/auth/google", json={"credential": "sample_token"})
+    resp = await async_client.post(
+        "/auth/google",
+        json={"code": "sample_auth_code", "redirect_uri": "http://localhost:5173/auth/callback"},
+    )
     assert resp.status_code == 503
     assert "not configured" in resp.json()["detail"]
 
@@ -46,6 +58,7 @@ async def test_google_auth_new_patient_registration(async_client: AsyncClient, m
     """Verify new patient registers successfully via Google OAuth with strictly PATIENT role."""
     settings = get_settings()
     monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "test-google-client-id.apps.googleusercontent.com")
+    monkeypatch.setattr(settings, "GOOGLE_CLIENT_SECRET", "test-google-client-secret")
 
     mock_google_claims = {
         "aud": "test-google-client-id.apps.googleusercontent.com",
@@ -57,12 +70,20 @@ async def test_google_auth_new_patient_registration(async_client: AsyncClient, m
         "picture": "https://lh3.googleusercontent.com/a/test_avatar.jpg",
     }
 
-    mock_response = Response(200, json=mock_google_claims)
+    real_post = AsyncClient.post
 
-    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
-        mock_get.return_value = mock_response
+    async def selective_post(self, url, *args, **kwargs):
+        if "oauth2.googleapis.com" in str(url):
+            return MOCK_TOKEN_EXCHANGE_RESPONSE
+        return await real_post(self, url, *args, **kwargs)
 
-        resp = await async_client.post("/auth/google", json={"credential": "valid_mock_credential_jwt"})
+    with patch.object(AsyncClient, "post", selective_post), \
+         patch("google.oauth2.id_token.verify_oauth2_token", return_value=mock_google_claims):
+
+        resp = await async_client.post(
+            "/auth/google",
+            json={"code": "sample_auth_code", "redirect_uri": "http://localhost:5173/auth/callback"},
+        )
         assert resp.status_code == 200, resp.text
         data = resp.json()
 
@@ -89,6 +110,7 @@ async def test_google_auth_existing_patient_account_linking(async_client: AsyncC
     """Verify existing patient without google_id is cleanly linked to verified Google email."""
     settings = get_settings()
     monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "test-google-client-id.apps.googleusercontent.com")
+    monkeypatch.setattr(settings, "GOOGLE_CLIENT_SECRET", "test-google-client-secret")
 
     # Create existing unlinked patient
     existing_patient = User(
@@ -112,12 +134,20 @@ async def test_google_auth_existing_patient_account_linking(async_client: AsyncC
         "picture": "https://lh3.googleusercontent.com/a/linked_avatar.jpg",
     }
 
-    mock_response = Response(200, json=mock_google_claims)
+    real_post = AsyncClient.post
 
-    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
-        mock_get.return_value = mock_response
+    async def selective_post(self, url, *args, **kwargs):
+        if "oauth2.googleapis.com" in str(url):
+            return MOCK_TOKEN_EXCHANGE_RESPONSE
+        return await real_post(self, url, *args, **kwargs)
 
-        resp = await async_client.post("/auth/google", json={"credential": "mock_jwt_link"})
+    with patch.object(AsyncClient, "post", selective_post), \
+         patch("google.oauth2.id_token.verify_oauth2_token", return_value=mock_google_claims):
+
+        resp = await async_client.post(
+            "/auth/google",
+            json={"code": "sample_auth_code", "redirect_uri": "http://localhost:5173/auth/callback"},
+        )
         assert resp.status_code == 200, resp.text
         data = resp.json()
         assert data["is_new_user"] is False
@@ -135,6 +165,7 @@ async def test_google_auth_staff_admin_privilege_boundary(async_client: AsyncCli
     """Verify staff and administrator accounts CANNOT authenticate via Google login (403 Forbidden)."""
     settings = get_settings()
     monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "test-google-client-id.apps.googleusercontent.com")
+    monkeypatch.setattr(settings, "GOOGLE_CLIENT_SECRET", "test-google-client-secret")
 
     # Seed an admin account
     admin_user = User(
@@ -158,12 +189,22 @@ async def test_google_auth_staff_admin_privilege_boundary(async_client: AsyncCli
         "name": "Hospital Director",
     }
 
-    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
-        mock_get.return_value = Response(200, json=mock_google_claims)
+    real_post = AsyncClient.post
 
-        resp = await async_client.post("/auth/google", json={"credential": "mock_admin_token"})
+    async def selective_post(self, url, *args, **kwargs):
+        if "oauth2.googleapis.com" in str(url):
+            return MOCK_TOKEN_EXCHANGE_RESPONSE
+        return await real_post(self, url, *args, **kwargs)
+
+    with patch.object(AsyncClient, "post", selective_post), \
+         patch("google.oauth2.id_token.verify_oauth2_token", return_value=mock_google_claims):
+
+        resp = await async_client.post(
+            "/auth/google",
+            json={"code": "sample_auth_code", "redirect_uri": "http://localhost:5173/auth/callback"},
+        )
         assert resp.status_code == 403
-        assert "restricted to patient accounts" in resp.json()["detail"]
+        assert "only available for patient accounts" in resp.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -171,6 +212,7 @@ async def test_google_auth_conflicting_google_id_rejected(async_client: AsyncCli
     """Verify 409 Conflict if email is already linked to a different google_id."""
     settings = get_settings()
     monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "test-google-client-id.apps.googleusercontent.com")
+    monkeypatch.setattr(settings, "GOOGLE_CLIENT_SECRET", "test-google-client-secret")
 
     linked_user = User(
         name="Already Linked Patient",
@@ -193,12 +235,22 @@ async def test_google_auth_conflicting_google_id_rejected(async_client: AsyncCli
         "name": "Impostor",
     }
 
-    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
-        mock_get.return_value = Response(200, json=mock_google_claims)
+    real_post = AsyncClient.post
 
-        resp = await async_client.post("/auth/google", json={"credential": "mock_conflict_token"})
+    async def selective_post(self, url, *args, **kwargs):
+        if "oauth2.googleapis.com" in str(url):
+            return MOCK_TOKEN_EXCHANGE_RESPONSE
+        return await real_post(self, url, *args, **kwargs)
+
+    with patch.object(AsyncClient, "post", selective_post), \
+         patch("google.oauth2.id_token.verify_oauth2_token", return_value=mock_google_claims):
+
+        resp = await async_client.post(
+            "/auth/google",
+            json={"code": "sample_auth_code", "redirect_uri": "http://localhost:5173/auth/callback"},
+        )
         assert resp.status_code == 409
-        assert "already linked to another Google profile" in resp.json()["detail"]
+        assert "already linked to a different Google account" in resp.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -206,6 +258,7 @@ async def test_google_auth_unverified_email_rejected(async_client: AsyncClient, 
     """Verify 400 Bad Request if Google indicates email is unverified."""
     settings = get_settings()
     monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "test-google-client-id.apps.googleusercontent.com")
+    monkeypatch.setattr(settings, "GOOGLE_CLIENT_SECRET", "test-google-client-secret")
 
     mock_google_claims = {
         "aud": "test-google-client-id.apps.googleusercontent.com",
@@ -216,12 +269,22 @@ async def test_google_auth_unverified_email_rejected(async_client: AsyncClient, 
         "name": "Unverified User",
     }
 
-    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
-        mock_get.return_value = Response(200, json=mock_google_claims)
+    real_post = AsyncClient.post
 
-        resp = await async_client.post("/auth/google", json={"credential": "mock_unverified_token"})
+    async def selective_post(self, url, *args, **kwargs):
+        if "oauth2.googleapis.com" in str(url):
+            return MOCK_TOKEN_EXCHANGE_RESPONSE
+        return await real_post(self, url, *args, **kwargs)
+
+    with patch.object(AsyncClient, "post", selective_post), \
+         patch("google.oauth2.id_token.verify_oauth2_token", return_value=mock_google_claims):
+
+        resp = await async_client.post(
+            "/auth/google",
+            json={"code": "sample_auth_code", "redirect_uri": "http://localhost:5173/auth/callback"},
+        )
         assert resp.status_code == 400
-        assert "not verified by Google" in resp.json()["detail"]
+        assert "not verified" in resp.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -229,22 +292,24 @@ async def test_google_auth_mismatched_audience_rejected(async_client: AsyncClien
     """Verify 401 Unauthorized if Google token was issued for a different client ID."""
     settings = get_settings()
     monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "our-expected-client-id.apps.googleusercontent.com")
+    monkeypatch.setattr(settings, "GOOGLE_CLIENT_SECRET", "test-google-client-secret")
 
-    mock_google_claims = {
-        "aud": "attacker-client-id.apps.googleusercontent.com",
-        "iss": "https://accounts.google.com",
-        "sub": "spoofed_id",
-        "email": "spoof@test.local",
-        "email_verified": True,
-        "name": "Spoofer",
-    }
+    real_post = AsyncClient.post
 
-    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
-        mock_get.return_value = Response(200, json=mock_google_claims)
+    async def selective_post(self, url, *args, **kwargs):
+        if "oauth2.googleapis.com" in str(url):
+            return MOCK_TOKEN_EXCHANGE_RESPONSE
+        return await real_post(self, url, *args, **kwargs)
 
-        resp = await async_client.post("/auth/google", json={"credential": "mock_spoofed_token"})
+    with patch.object(AsyncClient, "post", selective_post), \
+         patch("google.oauth2.id_token.verify_oauth2_token", side_effect=ValueError("Token has wrong audience")):
+
+        resp = await async_client.post(
+            "/auth/google",
+            json={"code": "sample_auth_code", "redirect_uri": "http://localhost:5173/auth/callback"},
+        )
         assert resp.status_code == 401
-        assert "audience does not match" in resp.json()["detail"]
+        assert "Google ID token verification failed" in resp.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -254,42 +319,25 @@ async def test_google_auth_code_exchange_flow(async_client: AsyncClient, monkeyp
     monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "test-google-client-id.apps.googleusercontent.com")
     monkeypatch.setattr(settings, "GOOGLE_CLIENT_SECRET", "test-google-client-secret")
 
-    mock_token_resp = Response(
-        200,
-        json={
-            "id_token": "mock_id_token_from_code",
-            "access_token": "mock_access_token",
-            "token_type": "Bearer",
-        },
-    )
-    mock_tokeninfo_resp = Response(
-        200,
-        json={
-            "aud": "test-google-client-id.apps.googleusercontent.com",
-            "iss": "https://accounts.google.com",
-            "sub": "google_sub_code_flow_40004",
-            "email": "code_flow_patient@test.local",
-            "email_verified": True,
-            "name": "Code Flow Patient",
-            "picture": "https://lh3.googleusercontent.com/code_pic.jpg",
-        },
-    )
+    mock_google_claims = {
+        "aud": "test-google-client-id.apps.googleusercontent.com",
+        "iss": "https://accounts.google.com",
+        "sub": "google_sub_code_flow_40004",
+        "email": "code_flow_patient@test.local",
+        "email_verified": True,
+        "name": "Code Flow Patient",
+        "picture": "https://lh3.googleusercontent.com/code_pic.jpg",
+    }
 
     real_post = AsyncClient.post
-    real_get = AsyncClient.get
 
     async def selective_post(self, url, *args, **kwargs):
         if "oauth2.googleapis.com" in str(url):
-            return mock_token_resp
+            return MOCK_TOKEN_EXCHANGE_RESPONSE
         return await real_post(self, url, *args, **kwargs)
 
-    async def selective_get(self, url, *args, **kwargs):
-        if "oauth2.googleapis.com" in str(url):
-            return mock_tokeninfo_resp
-        return await real_get(self, url, *args, **kwargs)
-
     with patch.object(AsyncClient, "post", selective_post), \
-         patch.object(AsyncClient, "get", selective_get):
+         patch("google.oauth2.id_token.verify_oauth2_token", return_value=mock_google_claims):
 
         resp = await async_client.post(
             "/auth/google",
@@ -308,7 +356,6 @@ async def test_google_auth_code_exchange_flow(async_client: AsyncClient, monkeyp
 @pytest.mark.asyncio
 async def test_normal_password_login_unaffected(async_client: AsyncClient):
     """Verify standard email/password authentication remains 100% operational."""
-    # Seed a standard user
     std_user = User(
         name="Standard Patient",
         email="standard_pwd_patient@test.local",

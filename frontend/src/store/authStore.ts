@@ -104,6 +104,9 @@ const TOKEN_KEY = 'chroniq_token';
 const USER_KEY = 'chroniq_user';
 
 function loadPersistedAuth(): { user: AuthUser | null; token: string | null } {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+    return { user: null, token: null };
+  }
   try {
     const token = localStorage.getItem(TOKEN_KEY);
     const userStr = localStorage.getItem(USER_KEY);
@@ -158,11 +161,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       ...user,
       id: user.id || (user as any)._id || '',
     };
-    try {
-      localStorage.setItem(TOKEN_KEY, token);
-      localStorage.setItem(USER_KEY, JSON.stringify(normalizedUser));
-    } catch (e) {
-      console.error('Failed to persist auth to localStorage', e);
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem(TOKEN_KEY, token);
+        localStorage.setItem(USER_KEY, JSON.stringify(normalizedUser));
+      } catch (e) {
+        console.error('Failed to persist auth to localStorage', e);
+      }
     }
 
     set({
@@ -180,11 +185,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   clearAuth: () => {
-    try {
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(USER_KEY);
-    } catch (e) {
-      console.error('Failed to clear persisted auth', e);
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      try {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
+      } catch (e) {
+        console.error('Failed to clear persisted auth', e);
+      }
     }
 
     set({
@@ -199,7 +206,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   restoreSession: async () => {
-    const token = get().token || localStorage.getItem(TOKEN_KEY);
+    const token =
+      get().token ||
+      (typeof window !== 'undefined' && typeof localStorage !== 'undefined'
+        ? localStorage.getItem(TOKEN_KEY)
+        : null);
     if (!token) {
       get().clearAuth();
       return false;
@@ -285,7 +296,7 @@ export async function login(identifier: string, password: string): Promise<Login
   }
 }
 
-export async function googleLogin(data: { credential?: string; code?: string; redirect_uri?: string }): Promise<LoginResponse> {
+export async function googleLogin(data: { code: string; redirect_uri: string }): Promise<LoginResponse> {
   try {
     const res = await authApi.googleAuth(data);
     const { token, user } = res.data;
@@ -302,7 +313,7 @@ export async function googleLogin(data: { credential?: string; code?: string; re
 
 export interface RegisterPayload {
   name: string;
-  phone: string;
+  phone?: string;
   email?: string;
   password?: string;
 }
@@ -317,7 +328,7 @@ export async function register(payload: RegisterPayload): Promise<RegisterRespon
   try {
     const res = await authApi.register({
       name: payload.name,
-      phone: payload.phone,
+      phone: payload.phone || undefined,
       email: payload.email || undefined,
       password: payload.password,
       role: 'patient',
@@ -336,51 +347,4 @@ export async function register(payload: RegisterPayload): Promise<RegisterRespon
   }
 }
 
-export async function verifyOtp(identifier: string, code: string, purpose = 'register'): Promise<LoginResponse> {
-  try {
-    const res = await authApi.verifyOtp({ target: identifier, code, purpose });
-    const { user, token } = res.data;
-    const normalizedUser: AuthUser = user ? { ...user, id: user.id || user._id } : (useAuthStore.getState().user as AuthUser);
-    if (token && normalizedUser) {
-      useAuthStore.getState().setAuth(normalizedUser, token);
-    }
-    return { user: normalizedUser, token };
-  } catch (err: any) {
-    throw new Error(getApiErrorMessage(err, 'Invalid or expired OTP code.'));
-  }
-}
 
-export async function resendOtp(target: string, purpose = 'register'): Promise<{ success: boolean; message?: string }> {
-  try {
-    const res = await authApi.resendOtp({ target, purpose });
-    return { success: true, message: res.data?.message };
-  } catch (err: any) {
-    throw new Error(getApiErrorMessage(err, 'Failed to resend verification code.'));
-  }
-}
-
-export async function requestPasswordReset(identifier: string): Promise<{ success: boolean; message?: string }> {
-  try {
-    const res = await authApi.forgotPassword({ target: identifier });
-    return { success: true, message: res.data?.message };
-  } catch (err: any) {
-    throw new Error(getApiErrorMessage(err, 'Unable to request password reset for this contact.'));
-  }
-}
-
-export async function resetPassword(identifier: string, code: string, newPassword: string): Promise<{ success: boolean }> {
-  try {
-    await authApi.resetPassword({ target: identifier, code, new_password: newPassword });
-    return { success: true };
-  } catch (err: any) {
-    throw new Error(getApiErrorMessage(err, 'Password reset failed. Invalid or expired code.'));
-  }
-}
-
-// ── Backwards-Compatible Aliases for Existing UI Components ──
-export const mockLogin = login;
-export const mockRegister = register;
-export const mockVerifyOtp = (identifier: string, code: string) => verifyOtp(identifier, code, 'verify-account');
-export const mockRequestPasswordReset = requestPasswordReset;
-export const mockResetPassword = (identifier: string, newPassword: string, code = '123456') =>
-  resetPassword(identifier, code, newPassword);
