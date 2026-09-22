@@ -10,7 +10,7 @@ from app.models.booking import Appointment, StatusEvent
 from app.models.common import AppointmentStatus, CreatedVia, Role, SlotStatus, utcnow
 from app.models.scheduling import Slot
 from app.schemas.booking import AppointmentCreateRequest, AppointmentResponse, RescheduleRequest
-from app.services.booking_service import confirm_booking, cancel_appointment
+from app.services.booking_service import confirm_booking, cancel_appointment, reschedule_appointment_service
 
 router = APIRouter(prefix="/appointments", tags=["Appointments"])
 
@@ -58,14 +58,34 @@ async def create_appointment(
     payload: AppointmentCreateRequest,
     current_user: User = Depends(get_current_user),
 ):
-    """Book an appointment with a held slot."""
+    """Book an appointment with a held slot (GAP-7)."""
     if not payload.slot_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="slot_id is required")
+
+    # Identity override prevention for patient accounts (GAP-7)
+    if current_user.role == Role.PATIENT:
+        if payload.patient_id and payload.patient_id != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot book appointment on behalf of another patient ID.",
+            )
+        if not payload.family_member_id:
+            if payload.patient_name and payload.patient_name.strip() != current_user.name.strip():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Arbitrary patient identity overrides are not permitted for patient accounts.",
+                )
+            if payload.patient and payload.patient.name and payload.patient.name.strip() != current_user.name.strip():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Arbitrary patient identity overrides are not permitted for patient accounts.",
+                )
 
     apt = await confirm_booking(
         user_id=str(current_user.id),
         doctor_id=payload.doctor_id,
         slot_id=payload.slot_id,
+        caller_role=current_user.role,
         patient_name=payload.patient_name or (payload.patient.name if payload.patient else None),
         family_member_id=payload.family_member_id,
         reason=payload.reason,
@@ -143,58 +163,21 @@ async def reschedule_appointment(
     payload: RescheduleRequest,
     current_user: User = Depends(get_current_user),
 ):
-    """Reschedule an existing appointment."""
-    apt = await Appointment.get(id)
-    if not apt:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Appointment not found")
-
-    user_id = str(current_user.id)
-    if current_user.role == Role.PATIENT and apt.patient_id != user_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access forbidden")
-
-    if current_user.role in (Role.HOSPITAL_ADMIN, Role.RECEPTIONIST, Role.DOCTOR):
-        if current_user.hospital_id and apt.hospital_id != current_user.hospital_id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hospital mismatch: Cannot reschedule appointment of another hospital")
-
-    # Free old slot if any
-    if apt.slot_id:
-        old_slot = await Slot.get(apt.slot_id)
-        if old_slot and old_slot.status == SlotStatus.BOOKED:
-            old_slot.status = SlotStatus.OPEN
-            old_slot.held_by = None
-            old_slot.held_until = None
-            old_slot.appointment_id = None
-            await old_slot.save()
-
-    now = utcnow()
-    if payload.new_slot_id:
-        new_slot = await Slot.get(payload.new_slot_id)
-        if not new_slot:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="New slot not found")
-        if new_slot.status not in (SlotStatus.OPEN, SlotStatus.HELD):
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="New slot is already booked")
-        new_slot.status = SlotStatus.BOOKED
-        new_slot.appointment_id = str(apt.id)
-        await new_slot.save()
-        apt.slot_id = payload.new_slot_id
-        apt.scheduled_start = new_slot.start
-        apt.scheduled_end = new_slot.end
-    elif payload.new_scheduled_start and payload.new_scheduled_end:
-        apt.scheduled_start = payload.new_scheduled_start
-        apt.scheduled_end = payload.new_scheduled_end
-
-    apt.status = AppointmentStatus.BOOKED
-    apt.needs_reschedule = False
-    apt.status_history.append(
-        StatusEvent(
-            status=AppointmentStatus.RESCHEDULED,
-            at=now,
-            by=user_id,
-            note=payload.reason or "Rescheduled",
+    """Reschedule an existing appointment (GAP-6)."""
+    if not payload.new_slot_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="new_slot_id is required for rescheduling.",
         )
+
+    apt = await reschedule_appointment_service(
+        appointment_id=id,
+        user_id=str(current_user.id),
+        caller_role=current_user.role,
+        new_slot_id=payload.new_slot_id,
+        caller_hospital_id=current_user.hospital_id,
+        reason=payload.reason,
     )
-    apt.updated_at = now
-    await apt.save()
     return to_appointment_response(apt)
 
 

@@ -1378,16 +1378,24 @@ See [`CHRONIQ_MCP_HIGH_PRIORITY_GAPS.md`](file:///e:/KLN/ChroniQ/backend/CHRONIQ
 | [`app/schemas/patient.py`](file:///e:/KLN/ChroniQ/backend/app/schemas/patient.py) | Patient portal schemas | 101 |
 | [`app/schemas/auth.py`](file:///e:/KLN/ChroniQ/backend/app/schemas/auth.py) | Auth schemas | 99 |
 
-### 14.2 Tests Referenced (Not Executed in This Task)
+### 14.2 Tests Executed & Verification Traceability
 
-| Test File | What It Covers |
-|---|---|
-| `tests/test_auth_rbac.py` | Patient role isolation, privilege escalation blocks |
-| `tests/test_booking_slots.py` | Slot hold/booking lifecycle |
-| `tests/test_security_hardening.py` | Ownership checks, quotas, hold theft prevention |
-| `tests/test_google_oauth.py` | Google OAuth role enforcement |
-| `tests/test_queue_eta.py` | Queue token sequencing, ETA calculation |
-| `tests/test_reviews_reports.py` | Review submission, 48-hour window |
+The test suite was executed against the backend test environment during this specification task (`pytest`, 62 collected tests):
+- **Total Tests:** 62
+- **Passed:** 59
+- **Failed:** 3 (confirming documented Backend Gaps #4 and #6)
+- **Duration:** 71.86s
+
+| Test Suite | Tests Run | Result | Traceability & Verified Claims |
+|---|---|---|---|
+| `tests/test_auth_rbac.py` | 3 | **3 Passed** | Verified patient role isolation, non-patient endpoint blocking (403), super admin boundary protection. |
+| `tests/test_booking_slots.py` | 3 | **3 Passed** | Verified slot hold reservation (5 min), transition to booked, conflict rejection (409) for overlapping/held slots. |
+| `tests/test_security_hardening.py` | 11 | **11 Passed** | Verified slot hold theft prevention, family member ownership/quota (max 6), document quota limits (50 MB), contact verification safeguards. |
+| `tests/test_google_oauth.py` | 9 | **9 Passed** | Verified Google OAuth restricted strictly to `patient` role; staff login rejection via OAuth. |
+| `tests/test_queue_eta.py` | 5 | **5 Passed** | Verified queue token sequencing, priority sorting, ETA calculations, late-arrival sorting penalty. |
+| `tests/test_reviews_reports.py` | 2 | **2 Passed** | Verified review creation, duplicate review rejection (409), 48-hour review modification window. |
+| `tests/test_kiosk_privacy.py` | 2 | **2 Passed** | Verified kiosk patient lookup privacy protections (phone/QR masking). |
+| `tests/test_gaps_4_5_6_7.py` | 27 | **24 Passed, 3 Failed** | Passed tests verify name derivations, dependent booking, review constraints. Failed tests confirm **Gap #4** (`GET /reviews/by-appointment/{id}` lack of 404/auth) and **Gap #6** (reschedule unheld slot handling and slot timestamp consistency). |
 
 ---
 

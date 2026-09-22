@@ -37,6 +37,7 @@ class AppointmentCreateRequest(BaseModel):
     reason: Optional[str] = None
     symptoms: Optional[str] = None
     symptoms_note: Optional[str] = None
+    patient_id: Optional[str] = None
 
 
 class RescheduleRequest(BaseModel):

@@ -36,7 +36,10 @@ async def lifespan(app: FastAPI):
     logger.info(f"Starting {settings.APP_NAME} ({settings.APP_ENV})...")
 
     # 1. Initialize MongoDB Atlas connection & Beanie ODM
-    db_connected = await init_db()
+    if not is_db_connected():
+        db_connected = await init_db()
+    else:
+        db_connected = True
     if db_connected:
         logger.info("MongoDB Atlas connected successfully.")
         # 2. Start background worker loops

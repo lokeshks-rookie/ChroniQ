@@ -10,7 +10,8 @@ from app.core.config import get_settings
 from app.core.dependencies import get_current_user
 from app.models.accounts import FamilyMember, User
 from app.models.booking import Appointment
-from app.models.common import Channel, DocumentCategory, Role, SupportCategory, SupportTicketStatus, utcnow
+from app.models.common import AppointmentStatus, Channel, DocumentCategory, Role, SupportCategory, SupportTicketStatus, utcnow
+from pymongo.errors import DuplicateKeyError
 from app.models.hospitals import Doctor, Hospital
 from app.models.system import MedicalDocument, Review, SupportTicket
 from app.schemas.patient import (
@@ -281,6 +282,13 @@ async def submit_review(
     if appt.patient_id != str(current_user.id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to this appointment")
 
+    # Enforce appointment completion before review submission (GAP-5)
+    if appt.status != AppointmentStatus.COMPLETED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Reviews can only be submitted for completed appointments (current status: '{appt.status.value}').",
+        )
+
     # Ensure single review per appointment
     existing = await Review.find_one(Review.appointment_id == payload.appointment_id)
     if existing:
@@ -303,7 +311,13 @@ async def submit_review(
         created_at=now,
         updated_at=now,
     )
-    await review.insert()
+    try:
+        await review.insert()
+    except DuplicateKeyError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A review has already been submitted for this appointment.",
+        )
 
     # Update doctor rating aggregates
     doctor = await Doctor.find_one(Doctor.custom_id == appt.doctor_id)
@@ -378,12 +392,37 @@ async def update_review(
     return {"id": str(review.id), "success": True, "updated_at": review.updated_at}
 
 
-@router.get("/reviews/by-appointment/{id}")
-async def get_review_by_appointment(id: str):
-    """Get review submitted for a given appointment."""
-    review = await Review.find_one(Review.appointment_id == id)
+@router.get("/reviews/by-appointment/{id}", response_model=dict)
+async def get_review_by_appointment(
+    id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Get review submitted for a given appointment with authentication and ownership enforcement (GAP-4)."""
+    appt = await Appointment.get(id)
+    if not appt:
+        appt = await Appointment.find_one(Appointment.booking_code == id)
+    if not appt:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Appointment not found")
+
+    user_id = str(current_user.id)
+    if current_user.role == Role.PATIENT and appt.patient_id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to this appointment review")
+
+    if current_user.role in (Role.HOSPITAL_ADMIN, Role.RECEPTIONIST):
+        if current_user.hospital_id and appt.hospital_id != current_user.hospital_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hospital mismatch: Access denied")
+    elif current_user.role == Role.DOCTOR:
+        doc_id = current_user.linked_doctor_id or user_id
+        if appt.doctor_id != doc_id and (current_user.hospital_id and appt.hospital_id != current_user.hospital_id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Doctor mismatch: Access denied")
+
+    review = await Review.find_one(Review.appointment_id == str(appt.id))
     if not review:
-        return None
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Review not found for this appointment")
+
+    if review.patient_id != appt.patient_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Review ownership mismatch")
+
     return {
         "id": str(review.id),
         "appointment_id": review.appointment_id,
